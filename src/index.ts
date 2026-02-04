@@ -1,8 +1,10 @@
+import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
+import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
@@ -57,6 +59,11 @@ async function main() {
     task: setTypescriptVersion({ path: projectPath }),
   });
 
+  setupTasks.push({
+    title: "Initializing TypeScript config package...",
+    task: copyTypescriptConfigPackage({ path: projectPath }),
+  });
+
   try {
     await tasksWithLogs(setupTasks);
   } catch (err) {
@@ -94,17 +101,17 @@ function initTurboRepo(args: { path: string }): TaskWithLogDefinition["task"] {
 }
 
 function deleteTurboExempleAppsAndPackages(args: { path: string }): TaskWithLogDefinition["task"] {
-  return async (tmpLog) => {
+  return async () => {
     const appsDocPath = resolve(args.path, "apps", "docs");
     const appsWebPath = resolve(args.path, "apps", "web");
     const packagesUiPath = resolve(args.path, "packages", "ui");
     const packagesEslintConfigPath = resolve(args.path, "packages", "eslint-config");
 
     try {
-      await runProcess("rm", ["-rf", appsDocPath, appsWebPath, packagesUiPath, packagesEslintConfigPath], {
-        onStdout: tmpLog.message,
-        onStderr: tmpLog.message,
-      });
+      await fs.rm(appsDocPath, { recursive: true, force: true });
+      await fs.rm(appsWebPath, { recursive: true, force: true });
+      await fs.rm(packagesUiPath, { recursive: true, force: true });
+      await fs.rm(packagesEslintConfigPath, { recursive: true, force: true });
       return { success: true, message: "Turbo example apps and packages deleted" };
     } catch (err) {
       return { success: false, message: `Failed to delete Turbo example apps: ${err}` };
@@ -142,6 +149,20 @@ function setTypescriptVersion(args: { path: string }): TaskWithLogDefinition["ta
       return { success: true, message: `TypeScript version set to ${Versions.typescript}` };
     } catch (err) {
       return { success: false, message: `Failed to set TypeScript version: ${err}` };
+    }
+  };
+}
+
+function copyTypescriptConfigPackage(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      const templateDir = resolve(TEMPLATE_ROOT, "typescript-config", "package");
+      const destDir = resolve(args.path, "packages", "typescript-config");
+      await fs.rm(destDir, { recursive: true, force: true });
+      await fs.cp(templateDir, destDir, { recursive: true });
+      return { success: true, message: "TypeScript config package initialized" };
+    } catch (err) {
+      return { success: false, message: `TypeScript config package initialization failed: ${err}` };
     }
   };
 }
