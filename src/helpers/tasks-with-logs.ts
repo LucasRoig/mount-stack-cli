@@ -2,7 +2,7 @@ import { taskLog } from "@clack/prompts";
 
 export type TaskWithLogDefinition = {
   title: string;
-  task: (logger: ReturnType<typeof taskLog>) => Promise<{ sucess: boolean; message: string }>;
+  task: (logger: ReturnType<typeof taskLog>) => Promise<{ success: boolean; message: string }>;
 };
 
 export async function tasksWithLogs(tasksDefinitions: TaskWithLogDefinition[]) {
@@ -12,7 +12,7 @@ export async function tasksWithLogs(tasksDefinitions: TaskWithLogDefinition[]) {
       retainLog: true,
     });
     const result = await task.task(tmpLog);
-    if (result.sucess) {
+    if (result.success) {
       tmpLog.success(result.message);
     } else {
       tmpLog.error(result.message);

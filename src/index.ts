@@ -2,8 +2,11 @@ import { resolve } from "node:path";
 import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
+import { updatePackage } from "pkg-types";
+import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
+import Versions from "./versions.json";
 
 async function main() {
   const cwd = process.cwd();
@@ -36,17 +39,22 @@ async function main() {
 
   setupTasks.push({
     title: "Initializing turbo repo...",
-    task: async (tmpLog) => {
-      try {
-        await runProcess("pnpm", ["dlx", "create-turbo@latest", projectPath, "-m", "pnpm", "--skip-install"], {
-          onStdout: tmpLog.message,
-          onStderr: tmpLog.message,
-        });
-        return { sucess: true, message: "Turbo repo initialized" };
-      } catch (err) {
-        return { sucess: false, message: `Turbo repo initialization failed: ${err}` };
-      }
-    },
+    task: initTurboRepo({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Deleting turbo example apps and packages...",
+    task: deleteTurboExempleAppsAndPackages({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Removing ESLint and Prettier...",
+    task: removeEslintAndPrettier({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Setting TypeScript version...",
+    task: setTypescriptVersion({ path: projectPath }),
   });
 
   try {
@@ -56,6 +64,86 @@ async function main() {
     process.exit(1);
   }
   outro("Done !");
+}
+
+function initTurboRepo(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      await runProcess(
+        "pnpm",
+        [
+          "dlx",
+          `create-turbo@${Versions["create-turbo"]}`,
+          args.path,
+          "-m",
+          "pnpm",
+          "--skip-install",
+          "--turbo-version",
+          Versions.turbo,
+        ],
+        {
+          onStdout: tmpLog.message,
+          onStderr: tmpLog.message,
+        },
+      );
+      return { success: true, message: "Turbo repo initialized" };
+    } catch (err) {
+      return { success: false, message: `Turbo repo initialization failed: ${err}` };
+    }
+  };
+}
+
+function deleteTurboExempleAppsAndPackages(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    const appsDocPath = resolve(args.path, "apps", "docs");
+    const appsWebPath = resolve(args.path, "apps", "web");
+    const packagesUiPath = resolve(args.path, "packages", "ui");
+    const packagesEslintConfigPath = resolve(args.path, "packages", "eslint-config");
+
+    try {
+      await runProcess("rm", ["-rf", appsDocPath, appsWebPath, packagesUiPath, packagesEslintConfigPath], {
+        onStdout: tmpLog.message,
+        onStderr: tmpLog.message,
+      });
+      return { success: true, message: "Turbo example apps and packages deleted" };
+    } catch (err) {
+      return { success: false, message: `Failed to delete Turbo example apps: ${err}` };
+    }
+  };
+}
+
+function removeEslintAndPrettier(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    const packageJsonPath = resolve(args.path, "package.json");
+    const turboJsonPath = resolve(args.path, "turbo.json");
+    try {
+      await updatePackage(packageJsonPath, (pkg) => {
+        delete pkg.devDependencies?.prettier;
+        delete pkg.scripts?.format;
+        delete pkg.scripts?.lint;
+      });
+      await updateJsonFile(turboJsonPath, (json) => {
+        delete json.tasks.lint;
+      });
+      return { success: true, message: "ESLint and Prettier removed" };
+    } catch (err) {
+      return { success: false, message: `Failed to remove ESLint and Prettier: ${err}` };
+    }
+  };
+}
+
+function setTypescriptVersion(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    const packageJsonPath = resolve(args.path, "package.json");
+    try {
+      await updatePackage(packageJsonPath, (pkg) => {
+        pkg.devDependencies!.typescript = Versions.typescript;
+      });
+      return { success: true, message: `TypeScript version set to ${Versions.typescript}` };
+    } catch (err) {
+      return { success: false, message: `Failed to set TypeScript version: ${err}` };
+    }
+  };
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: Sometimes useful
