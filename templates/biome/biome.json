@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
   "vcs": {
     "enabled": false,
     "clientKind": "git",
@@ -18,16 +18,33 @@
       "recommended": true,
       "correctness": {
         "noUnusedVariables": "error",
-        "noUnusedImports": "info"
+        "noUnusedImports": "info",
+        "noNestedComponentDefinitions": "off",
+        "useExhaustiveDependencies": "warn"
       },
       "style": {
         "noUselessElse": "off",
         "noNonNullAssertion": "warn",
         "noParameterAssign": "off"
       },
+      "complexity": {
+        "noForEach": "off"
+      },
       "suspicious": {
-        "useAwait": "error"
+        "useAwait": "error",
+        "noUnknownAtRules": "off"
       }
+    }
+  },
+  "javascript": {
+    "globals": [
+      "React",
+      "JSX"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   },
   "assist": {
@@ -42,12 +59,11 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
+      "!**/.next",
       "!**/node_modules",
       "!**/dist",
       "!**/generated",
-      "!**/coverage",
-      "!templates",
-      "!my-app"
+      "!**/coverage"
     ]
   }
 }

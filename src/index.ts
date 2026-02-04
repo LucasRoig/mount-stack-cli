@@ -64,6 +64,16 @@ async function main() {
     task: copyTypescriptConfigPackage({ path: projectPath }),
   });
 
+  setupTasks.push({
+    title: "Copying .editorconfig file...",
+    task: copyEditorConfigFile({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Installing Biome...",
+    task: installBiome({ path: projectPath }),
+  });
+
   try {
     await tasksWithLogs(setupTasks);
   } catch (err) {
@@ -163,6 +173,42 @@ function copyTypescriptConfigPackage(args: { path: string }): TaskWithLogDefinit
       return { success: true, message: "TypeScript config package initialized" };
     } catch (err) {
       return { success: false, message: `TypeScript config package initialization failed: ${err}` };
+    }
+  };
+}
+
+function copyEditorConfigFile(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      const templateFile = resolve(TEMPLATE_ROOT, "editorconfig", ".editorconfig");
+      const destFile = resolve(args.path, ".editorconfig");
+      await fs.copyFile(templateFile, destFile);
+      return { success: true, message: ".editorconfig file copied" };
+    } catch (err) {
+      return { success: false, message: `Failed to copy .editorconfig file: ${err}` };
+    }
+  };
+}
+
+function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      const biomeConfigTemplatePath = resolve(TEMPLATE_ROOT, "biome", "biome.json");
+      const destBiomeConfigPath = resolve(args.path, "biome.json");
+      await fs.copyFile(biomeConfigTemplatePath, destBiomeConfigPath);
+      await updateJsonFile(destBiomeConfigPath, (config) => {
+        config.$schema = `https://biomejs.dev/schemas/${Versions.biome}/schema.json`;
+      });
+      await updatePackage(resolve(args.path, "package.json"), (pkg) => {
+        pkg.devDependencies = pkg.devDependencies || {};
+        pkg.devDependencies.biome = Versions.biome;
+        pkg.scripts = pkg.scripts || {};
+        pkg.scripts.lint = "biome ci";
+        pkg.scripts.fix = "biome check --write";
+      });
+      return { success: true, message: "Biome installed" };
+    } catch (err) {
+      return { success: false, message: `Failed to install Biome: ${err}` };
     }
   };
 }
