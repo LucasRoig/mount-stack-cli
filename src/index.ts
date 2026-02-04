@@ -74,6 +74,11 @@ async function main() {
     task: installBiome({ path: projectPath }),
   });
 
+  setupTasks.push({
+    title: "Creating Next.js app...",
+    task: createNextApp({ path: projectPath, name: "web-exemple" }),
+  });
+
   try {
     await tasksWithLogs(setupTasks);
   } catch (err) {
@@ -209,6 +214,64 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
       return { success: true, message: "Biome installed" };
     } catch (err) {
       return { success: false, message: `Failed to install Biome: ${err}` };
+    }
+  };
+}
+
+function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      const appPath = resolve(args.path, "apps", args.name);
+      await runProcess(
+        "pnpm",
+        [
+          "dlx",
+          `create-next-app@${Versions["create-next-app"]}`,
+          appPath,
+          "--ts",
+          "--no-linter",
+          "--app",
+          "--src-dir",
+          "--turbopack",
+          "--empty",
+          "--use-pnpm",
+          "--skip-install",
+          "--disable-git",
+          "--no-react-compiler",
+          "--no-tailwind",
+          "--import-alias",
+          "@/*"
+        ],
+        {
+          onStdout: tmpLog.message,
+          onStderr: tmpLog.message,
+        },
+      );
+      const tsConfigTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "tsconfig.json");
+      const destTsConfigPath = resolve(appPath, "tsconfig.json");
+      await fs.copyFile(tsConfigTemplatePath, destTsConfigPath);
+
+      const packageJsonPath = resolve(appPath, "package.json");
+      await updatePackage(packageJsonPath, (pkg) => {
+        pkg.devDependencies = pkg.devDependencies || {};
+        pkg.devDependencies.typescript = Versions.typescript;
+
+        pkg.dependencies = pkg.dependencies || {};
+        pkg.dependencies.next = `^${pkg.dependencies.next}`;
+        pkg.dependencies.react = `^${pkg.dependencies.react}`;
+        pkg.dependencies["react-dom"] = `^${pkg.dependencies["react-dom"]}`;
+
+        pkg.scripts = pkg.scripts || {};
+        pkg.scripts["check-types"] = "next typegen && tsc --noEmit";
+        pkg.scripts.lint = "biome lint";
+        pkg.scripts.build = "pnpm lint && next build";
+
+        pkg.type = "module";
+      });
+
+      return { success: true, message: `Next.js app ${args.name} created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create ${args.name} Next.js app: ${err}` };
     }
   };
 }
