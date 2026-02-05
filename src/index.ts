@@ -9,8 +9,8 @@ import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
-import { replaceTextInFile } from "./helpers/text-file";
 import { getSourceFile } from "./helpers/ts-files";
+import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import Versions from "./versions.json";
 
@@ -263,64 +263,7 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
   };
 }
 
-function getJustfilePath(projectPath: string): string {
-  return resolve(projectPath, "justfile");
-}
-
-async function justfileExists(projectPath: string): Promise<boolean> {
-  return await fs
-    .stat(getJustfilePath(projectPath))
-    .then(() => true)
-    .catch(() => false);
-}
-
-async function createJustfile(args: { path: string }) {
-  const justfilePath = getJustfilePath(args.path);
-  const exists = await justfileExists(args.path);
-  if (!exists) {
-    await fs.writeFile(justfilePath, "set positional-arguments\n", "utf8");
-  }
-}
-
 function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
-
-  async function addDockerfileToNextApp(args: { appPath: string; appName: string; projectRoot: string }) {
-    const dockerfileTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "Dockerfile");
-    const destDockerfilePath = resolve(args.appPath, "Dockerfile");
-    await fs.copyFile(dockerfileTemplatePath, destDockerfilePath);
-    await replaceTextInFile(destDockerfilePath, "ARG APP_NAME=web", `ARG APP_NAME=${args.appName}`);
-
-    const nextConfigPath = resolve(args.appPath, "next.config.ts");
-    const nextConfigFile = await getSourceFile(nextConfigPath);
-    nextConfigFile.addImportDeclaration({
-      moduleSpecifier: "node:path",
-      defaultImport: "path",
-    });
-    const nextConfigObject = nextConfigFile
-      .getVariableDeclarationOrThrow("nextConfig")
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
-    nextConfigObject.addPropertyAssignment({
-      name: "output",
-      initializer: `"standalone"`,
-    });
-    nextConfigObject.addPropertyAssignment({
-      name: "outputFileTracingRoot",
-      initializer: `path.join(import.meta.dirname, '../../')`,
-    });
-    await nextConfigFile.save();
-
-    if (!(await justfileExists(args.projectRoot))) {
-      await createJustfile({ path: args.projectRoot });
-    }
-    let justfileContent = "";
-    justfileContent += `docker_${args.appName}_name := ${args.appName}\n\n`;
-    justfileContent += `@build_${args.appName} version:\n`;
-    justfileContent += `\tdocker build -t {{docker_${args.appName}_name}}:{{version}} -f apps/${args.appName}/Dockerfile .\n\n`;
-    justfileContent += `@run_${args.appName} version:\n`;
-    justfileContent += `\tdocker run -p 3000:3000 {{docker_${args.appName}_name}}:{{version}}\n\n`;
-    await fs.appendFile(getJustfilePath(args.projectRoot), justfileContent);
-  }
-
   async function addI18NToNextApp(args: { appPath: string }) {
     const packageJsonPath = resolve(args.appPath, "package.json");
     await updatePackage(packageJsonPath, (pkg) => {
@@ -542,10 +485,16 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
 
   return async (tmpLog) => {
     try {
-      const nextApp = await NextAppInstaller.create({ path: args.path, name: args.name, logger: tmpLog });
+      const monoRepoInstaller = new MonoRepoInstaller(args.path);
+      const nextApp = await NextAppInstaller.create({
+        path: args.path,
+        name: args.name,
+        logger: tmpLog,
+        monorepo: monoRepoInstaller,
+      });
 
       await nextApp.addTailwind();
-      await addDockerfileToNextApp({ appPath: nextApp.nextAppRootPath, appName: args.name, projectRoot: args.path });
+      await nextApp.addDocker();
       await addReactQueryToNextApp({ appPath: nextApp.nextAppRootPath });
       await addI18NToNextApp({ appPath: nextApp.nextAppRootPath });
       await addLoggerToNextApp({ appPath: nextApp.nextAppRootPath });
