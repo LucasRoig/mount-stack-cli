@@ -11,6 +11,7 @@ import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
 import { replaceTextInFile } from "./helpers/text-file";
 import { getSourceFile } from "./helpers/ts-files";
+import { NextAppInstaller } from "./installers/next-app-installer";
 import Versions from "./versions.json";
 
 async function main() {
@@ -415,12 +416,12 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     const instrumentationPath = resolve(args.appPath, "src", "instrumentation.ts");
     const instrumentationFile = await getSourceFile(instrumentationPath);
     instrumentationFile.addImportDeclaration({
-      moduleSpecifier: "@/lib/logger"
+      moduleSpecifier: "@/lib/logger",
     });
     instrumentationFile.addImportDeclaration({
       moduleSpecifier: "@logtape/logtape",
       namedImports: ["getLogger"],
-    })
+    });
     instrumentationFile.addVariableStatement({
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
@@ -431,7 +432,9 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       ],
     });
     const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).addStatements(`logger.info("Starting instrumentation");`);
+    registerFunction
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
+      .addStatements(`logger.info("Starting instrumentation");`);
     instrumentationFile.formatText();
     await instrumentationFile.save();
   }
@@ -447,7 +450,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     await updatePackage(packageJsonPath, (pkg) => {
       pkg.dependencies = pkg.dependencies || {};
       pkg.dependencies.zod = Versions.zod;
-    })
+    });
 
     const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
     const destEnvDir = resolve(args.appPath, "src", "env");
@@ -466,9 +469,9 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       namedImports: ["printEnv"],
     });
     const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).addStatements(
-      await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"),
-    );
+    registerFunction
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
+      .addStatements(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
     instrumentationFile.formatText();
     await instrumentationFile.save();
 
@@ -494,7 +497,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
           initializer: "getEnv()",
         },
       ],
-    })
+    });
     const jsxExpressions = layoutFunction
       .getBodyOrThrow()
       .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
@@ -555,75 +558,14 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
 
   return async (tmpLog) => {
     try {
-      const appPath = resolve(args.path, "apps", args.name);
-      await runProcess(
-        "pnpm",
-        [
-          "dlx",
-          `create-next-app@${Versions["create-next-app"]}`,
-          appPath,
-          "--ts",
-          "--no-linter",
-          "--app",
-          "--src-dir",
-          "--turbopack",
-          "--empty",
-          "--use-pnpm",
-          "--skip-install",
-          "--disable-git",
-          "--no-react-compiler",
-          "--no-tailwind",
-          "--import-alias",
-          "@/*",
-        ],
-        {
-          onStdout: tmpLog.message,
-          onStderr: tmpLog.message,
-        },
-      );
-      const tsConfigTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "tsconfig.json");
-      const destTsConfigPath = resolve(appPath, "tsconfig.json");
-      await fs.copyFile(tsConfigTemplatePath, destTsConfigPath);
+      const nextApp = await NextAppInstaller.create({ path: args.path, name: args.name, logger: tmpLog });
 
-      const packageJsonPath = resolve(appPath, "package.json");
-      await updatePackage(packageJsonPath, (pkg) => {
-        pkg.devDependencies = pkg.devDependencies || {};
-        pkg.devDependencies.typescript = Versions.typescript;
-
-        pkg.dependencies = pkg.dependencies || {};
-        pkg.dependencies.next = `^${pkg.dependencies.next}`;
-        pkg.dependencies.react = `^${pkg.dependencies.react}`;
-        pkg.dependencies["react-dom"] = `^${pkg.dependencies["react-dom"]}`;
-
-        pkg.scripts = pkg.scripts || {};
-        pkg.scripts["check-types"] = "next typegen && tsc --noEmit";
-        pkg.scripts.lint = "biome lint";
-        pkg.scripts.build = "pnpm lint && next build";
-
-        pkg.type = "module";
-      });
-
-      const cssTemplateFile = resolve(TEMPLATE_ROOT, "next-app", "globals.css");
-      const destCssFile = resolve(appPath, "src", "app", "globals.css");
-      await fs.copyFile(cssTemplateFile, destCssFile);
-
-      const mainLayoutTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "layout.tsx");
-      const destMainLayoutPath = resolve(appPath, "src", "app", "layout.tsx");
-      await fs.copyFile(mainLayoutTemplatePath, destMainLayoutPath);
-
-      const instrumentationTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "instrumentation.ts");
-      const destInstrumentationPath = resolve(appPath, "src", "instrumentation.ts");
-      await fs.copyFile(instrumentationTemplatePath, destInstrumentationPath);
-
-      const gitignoreFile = resolve(appPath, ".gitignore");
-      await fs.appendFile(gitignoreFile, "!.env.*.sample");
-
-      await addTailwindToNextApp({ appPath });
-      await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
-      await addReactQueryToNextApp({ appPath });
-      await addI18NToNextApp({ appPath });
-      await addLoggerToNextApp({ appPath });
-      await addEnvFileManagementToNextApp({ appPath });
+      await addTailwindToNextApp({ appPath: nextApp.nextAppRootPath });
+      await addDockerfileToNextApp({ appPath: nextApp.nextAppRootPath, appName: args.name, projectRoot: args.path });
+      await addReactQueryToNextApp({ appPath: nextApp.nextAppRootPath });
+      await addI18NToNextApp({ appPath: nextApp.nextAppRootPath });
+      await addLoggerToNextApp({ appPath: nextApp.nextAppRootPath });
+      await addEnvFileManagementToNextApp({ appPath: nextApp.nextAppRootPath });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {

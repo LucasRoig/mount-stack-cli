@@ -1,8 +1,10 @@
 import { taskLog } from "@clack/prompts";
 
+export type TaskLogger = ReturnType<typeof taskLog>;
+
 export type TaskWithLogDefinition = {
   title: string;
-  task: (logger: ReturnType<typeof taskLog>) => Promise<{ success: boolean; message: string }>;
+  task: (logger: TaskLogger) => Promise<{ success: boolean; message: string }>;
 };
 
 export async function tasksWithLogs(tasksDefinitions: TaskWithLogDefinition[]) {
