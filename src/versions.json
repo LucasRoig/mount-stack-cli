@@ -9,5 +9,6 @@
   "tailwindcss": "^4.1.18",
   "next-intl": "^4.8.2",
   "@logtape/logtape": "^2.0.2",
-  "@logtape/pretty": "^2.0.2"
+  "@logtape/pretty": "^2.0.2",
+  "zod": "^4.3.6"
 }

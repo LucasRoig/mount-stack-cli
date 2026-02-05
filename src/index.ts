@@ -436,6 +436,81 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     await instrumentationFile.save();
   }
 
+  async function addEnvFileManagementToNextApp(args: { appPath: string }) {
+    const envLocalTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "env.local.sample");
+    const envLocalSampleDestPath = resolve(args.appPath, "env.local.sample");
+    const envLocalDestPath = resolve(args.appPath, "env.local");
+    await fs.copyFile(envLocalTemplatePath, envLocalSampleDestPath);
+    await fs.copyFile(envLocalTemplatePath, envLocalDestPath);
+
+    const packageJsonPath = resolve(args.appPath, "package.json");
+    await updatePackage(packageJsonPath, (pkg) => {
+      pkg.dependencies = pkg.dependencies || {};
+      pkg.dependencies.zod = Versions.zod;
+    })
+
+    const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
+    const destEnvDir = resolve(args.appPath, "src", "env");
+    const envTsDestPath = resolve(destEnvDir, "env.ts");
+    await fs.mkdir(destEnvDir, { recursive: true });
+    await fs.cp(envTsTemplatePath, envTsDestPath);
+
+    const envContextTemplatePath = resolve(TEMPLATE_ROOT, "env", "client-env-context.tsx");
+    const envContextDestPath = resolve(destEnvDir, "client-env-context.tsx");
+    await fs.cp(envContextTemplatePath, envContextDestPath);
+
+    const instrumentationPath = resolve(args.appPath, "src", "instrumentation.ts");
+    const instrumentationFile = await getSourceFile(instrumentationPath);
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@/env/env",
+      namedImports: ["printEnv"],
+    });
+    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
+    registerFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).addStatements(
+      await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"),
+    );
+    instrumentationFile.formatText();
+    await instrumentationFile.save();
+
+    const layoutPath = resolve(args.appPath, "src", "app", "layout.tsx");
+    const layoutFile = await getSourceFile(layoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "@/env/client-env-context",
+      namedImports: ["ClientEnvContextProvider"],
+    });
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "@/env/env",
+      namedImports: ["getEnv"],
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
+    }
+    layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(0, {
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "env",
+          initializer: "getEnv()",
+        },
+      ],
+    })
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<ClientEnvContextProvider clientEnv={env.client}>{children}</ClientEnvContextProvider>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
+  }
+
   return async (tmpLog) => {
     try {
       const appPath = resolve(args.path, "apps", args.name);
@@ -498,10 +573,14 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       const destInstrumentationPath = resolve(appPath, "src", "instrumentation.ts");
       await fs.copyFile(instrumentationTemplatePath, destInstrumentationPath);
 
+      const gitignoreFile = resolve(appPath, ".gitignore");
+      await fs.appendFile(gitignoreFile, "!.env.*.sample");
+
       await addTailwindToNextApp({ appPath });
       await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
       await addI18NToNextApp({ appPath });
       await addLoggerToNextApp({ appPath });
+      await addEnvFileManagementToNextApp({ appPath });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
