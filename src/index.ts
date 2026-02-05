@@ -283,22 +283,6 @@ async function createJustfile(args: { path: string }) {
 }
 
 function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
-  async function addTailwindToNextApp(args: { appPath: string }) {
-    const packageJsonPath = resolve(args.appPath, "package.json");
-    await updatePackage(packageJsonPath, (pkg) => {
-      pkg.devDependencies = pkg.devDependencies || {};
-      pkg.devDependencies.tailwindcss = Versions.tailwindcss;
-      pkg.devDependencies.postcss = Versions.postcss;
-      pkg.devDependencies["@tailwindcss/postcss"] = Versions["@tailwindcss/postcss"];
-    });
-    const postCssConfigTemplatePath = resolve(TEMPLATE_ROOT, "tailwind", "postcss.config.mjs");
-    const destPostCssConfigPath = resolve(args.appPath, "postcss.config.mjs");
-    await fs.copyFile(postCssConfigTemplatePath, destPostCssConfigPath);
-
-    const cssTemplateFile = resolve(TEMPLATE_ROOT, "tailwind", "globals.css");
-    const destCssFile = resolve(args.appPath, "src", "app", "globals.css");
-    await fs.copyFile(cssTemplateFile, destCssFile);
-  }
 
   async function addDockerfileToNextApp(args: { appPath: string; appName: string; projectRoot: string }) {
     const dockerfileTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "Dockerfile");
@@ -560,7 +544,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     try {
       const nextApp = await NextAppInstaller.create({ path: args.path, name: args.name, logger: tmpLog });
 
-      await addTailwindToNextApp({ appPath: nextApp.nextAppRootPath });
+      await nextApp.addTailwind();
       await addDockerfileToNextApp({ appPath: nextApp.nextAppRootPath, appName: args.name, projectRoot: args.path });
       await addReactQueryToNextApp({ appPath: nextApp.nextAppRootPath });
       await addI18NToNextApp({ appPath: nextApp.nextAppRootPath });
