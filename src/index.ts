@@ -70,6 +70,11 @@ async function main() {
   });
 
   setupTasks.push({
+    title: "Copying VSCode settings file...",
+    task: copyVsCodeSettingsFile({ path: projectPath }),
+  });
+
+  setupTasks.push({
     title: "Installing Biome...",
     task: installBiome({ path: projectPath }),
   });
@@ -108,6 +113,8 @@ function initTurboRepo(args: { path: string }): TaskWithLogDefinition["task"] {
           onStderr: tmpLog.message,
         },
       );
+      const vsCodeSettingsPath = resolve(args.path, ".vscode");
+      await fs.rm(vsCodeSettingsPath, { recursive: true, force: true });
       return { success: true, message: "Turbo repo initialized" };
     } catch (err) {
       return { success: false, message: `Turbo repo initialization failed: ${err}` };
@@ -191,6 +198,22 @@ function copyEditorConfigFile(args: { path: string }): TaskWithLogDefinition["ta
       return { success: true, message: ".editorconfig file copied" };
     } catch (err) {
       return { success: false, message: `Failed to copy .editorconfig file: ${err}` };
+    }
+  };
+}
+
+function copyVsCodeSettingsFile(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      const template = resolve(TEMPLATE_ROOT, ".vscode");
+      const destDir = resolve(args.path, ".vscode");
+      await fs.stat(destDir).catch(async () => {
+        await fs.mkdir(destDir, { recursive: true });
+      });
+      await fs.cp(template, destDir, { recursive: true });
+      return { success: true, message: "VSCode settings file copied" };
+    } catch (err) {
+      return { success: false, message: `Failed to copy VSCode settings file: ${err}` };
     }
   };
 }
