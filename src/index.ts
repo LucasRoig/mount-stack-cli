@@ -242,6 +242,23 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
 }
 
 function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
+  async function addTailwindToNextApp(args: { appPath: string }) {
+    const packageJsonPath = resolve(args.appPath, "package.json");
+    await updatePackage(packageJsonPath, (pkg) => {
+      pkg.devDependencies = pkg.devDependencies || {};
+      pkg.devDependencies.tailwindcss = Versions.tailwindcss;
+      pkg.devDependencies.postcss = Versions.postcss;
+      pkg.devDependencies["@tailwindcss/postcss"] = Versions["@tailwindcss/postcss"];
+    });
+    const postCssConfigTemplatePath = resolve(TEMPLATE_ROOT, "tailwind", "postcss.config.mjs");
+    const destPostCssConfigPath = resolve(args.appPath, "postcss.config.mjs");
+    await fs.copyFile(postCssConfigTemplatePath, destPostCssConfigPath);
+
+    const cssTemplateFile = resolve(TEMPLATE_ROOT, "tailwind", "globals.css");
+    const destCssFile = resolve(args.appPath, "src", "app", "globals.css");
+    await fs.copyFile(cssTemplateFile, destCssFile);
+  }
+
   return async (tmpLog) => {
     try {
       const appPath = resolve(args.path, "apps", args.name);
@@ -291,6 +308,16 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
 
         pkg.type = "module";
       });
+
+      const cssTemplateFile = resolve(TEMPLATE_ROOT, "next-app", "globals.css");
+      const destCssFile = resolve(appPath, "src", "app", "globals.css");
+      await fs.copyFile(cssTemplateFile, destCssFile);
+
+      const mainLayoutTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "layout.tsx");
+      const destMainLayoutPath = resolve(appPath, "src", "app", "layout.tsx");
+      await fs.copyFile(mainLayoutTemplatePath, destMainLayoutPath);
+
+      await addTailwindToNextApp({ appPath });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
