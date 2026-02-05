@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import { updatePackage } from "pkg-types";
-import { ts } from "ts-morph";
+import { type JsxElement, ts } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
 import { runProcess } from "../helpers/run-process";
 import type { TaskLogger } from "../helpers/tasks-with-logs";
@@ -28,8 +28,12 @@ export class NextAppInstaller {
   private instrumentationPath: string;
   private packageJsonPath: string;
   private nextConfigPath: string;
+  private srcPath: string;
+  private libPath: string;
+  private appRouterDirPath: string;
   private isTailwindInstalled = false;
   private isDockerInstalled = false;
+  private isReactQueryInstalled = false;
 
   public static async create(args: NextAppInstallerArgs) {
     const installer = new NextAppInstaller(args);
@@ -42,11 +46,12 @@ export class NextAppInstaller {
     this.appName = args.name;
     this.nextAppRootPath = resolve(args.path, "apps", args.name);
     this.tsConfigPath = resolve(this.nextAppRootPath, "tsconfig.json");
-    const srcPath = resolve(this.nextAppRootPath, "src");
-    const appDirPath = resolve(srcPath, "app");
-    this.globalsCssPath = resolve(appDirPath, "globals.css");
-    this.rootLayoutPath = resolve(appDirPath, "layout.tsx");
-    this.instrumentationPath = resolve(srcPath, "instrumentation.ts");
+    this.srcPath = resolve(this.nextAppRootPath, "src");
+    this.libPath = resolve(this.srcPath, "lib");
+    this.appRouterDirPath = resolve(this.srcPath, "app");
+    this.globalsCssPath = resolve(this.appRouterDirPath, "globals.css");
+    this.rootLayoutPath = resolve(this.appRouterDirPath, "layout.tsx");
+    this.instrumentationPath = resolve(this.srcPath, "instrumentation.ts");
     this.packageJsonPath = resolve(this.nextAppRootPath, "package.json");
     this.nextConfigPath = resolve(this.nextAppRootPath, "next.config.ts");
     this.logger = args.logger;
@@ -156,7 +161,7 @@ export class NextAppInstaller {
     });
     await nextConfigFile.save();
 
-    if (!await this.monoRepoInstaller.justfileExists()) {
+    if (!(await this.monoRepoInstaller.justfileExists())) {
       await this.monoRepoInstaller.createJustfile();
     }
 
@@ -169,5 +174,49 @@ export class NextAppInstaller {
     await this.monoRepoInstaller.appendToJustfile(justfileContent);
 
     this.isDockerInstalled = true;
+  }
+
+  public async addReactQuery() {
+    if (this.isReactQueryInstalled) {
+      throw new Error("React Query is already installed");
+    }
+
+    await this.addDependencyToPackageJson("@tanstack/react-query", Versions["@tanstack/react-query"]);
+    await this.addDevDependencyToPackageJson(
+      "@tanstack/react-query-devtools",
+      Versions["@tanstack/react-query-devtools"],
+    );
+
+    const queryClientLibTemplatePath = resolve(TEMPLATE_ROOT, "react-query", "lib");
+    await fs.cp(queryClientLibTemplatePath, this.libPath, { recursive: true });
+
+    const appTemplatePath = resolve(TEMPLATE_ROOT, "react-query", "app");
+    await fs.cp(appTemplatePath, this.appRouterDirPath, { recursive: true });
+
+    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "./providers",
+      defaultImport: "Providers",
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
+    }
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<Providers>{children}</Providers>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
+
+    this.isReactQueryInstalled = true;
   }
 }
