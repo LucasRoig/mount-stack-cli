@@ -511,6 +511,48 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     await layoutFile.save();
   }
 
+  async function addReactQueryToNextApp(args: { appPath: string }) {
+    const packageJsonPath = resolve(args.appPath, "package.json");
+    await updatePackage(packageJsonPath, (pkg) => {
+      pkg.dependencies = pkg.dependencies || {};
+      pkg.dependencies["@tanstack/react-query"] = Versions["@tanstack/react-query"];
+      pkg.dependencies["@tanstack/react-query-devtools"] = Versions["@tanstack/react-query-devtools"];
+    });
+
+    const queryClientLibTemplatePath = resolve(TEMPLATE_ROOT, "react-query", "lib");
+    const queryClientLibDestPath = resolve(args.appPath, "src", "lib");
+    await fs.cp(queryClientLibTemplatePath, queryClientLibDestPath, { recursive: true });
+
+    const appTemplatePath = resolve(TEMPLATE_ROOT, "react-query", "app");
+    const appDestPath = resolve(args.appPath, "src", "app");
+    await fs.cp(appTemplatePath, appDestPath, { recursive: true });
+
+    const layoutPath = resolve(args.appPath, "src", "app", "layout.tsx");
+    const layoutFile = await getSourceFile(layoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "./providers",
+      defaultImport: "Providers",
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
+    }
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<Providers>{children}</Providers>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
+  }
+
   return async (tmpLog) => {
     try {
       const appPath = resolve(args.path, "apps", args.name);
@@ -578,6 +620,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
 
       await addTailwindToNextApp({ appPath });
       await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
+      await addReactQueryToNextApp({ appPath });
       await addI18NToNextApp({ appPath });
       await addLoggerToNextApp({ appPath });
       await addEnvFileManagementToNextApp({ appPath });
