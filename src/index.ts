@@ -4,7 +4,7 @@ import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
-import { ts } from "ts-morph";
+import { type JsxElement, ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
@@ -267,7 +267,10 @@ function getJustfilePath(projectPath: string): string {
 }
 
 async function justfileExists(projectPath: string): Promise<boolean> {
-  return await fs.stat(getJustfilePath(projectPath)).then(() => true).catch(() => false);
+  return await fs
+    .stat(getJustfilePath(projectPath))
+    .then(() => true)
+    .catch(() => false);
 }
 
 async function createJustfile(args: { path: string }) {
@@ -296,7 +299,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     await fs.copyFile(cssTemplateFile, destCssFile);
   }
 
-  async function addDockerfileToNextApp(args: { appPath: string; appName: string, projectRoot: string }) {
+  async function addDockerfileToNextApp(args: { appPath: string; appName: string; projectRoot: string }) {
     const dockerfileTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "Dockerfile");
     const destDockerfilePath = resolve(args.appPath, "Dockerfile");
     await fs.copyFile(dockerfileTemplatePath, destDockerfilePath);
@@ -321,7 +324,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     });
     await nextConfigFile.save();
 
-    if (!await justfileExists(args.projectRoot)) {
+    if (!(await justfileExists(args.projectRoot))) {
       await createJustfile({ path: args.projectRoot });
     }
     let justfileContent = "";
@@ -331,7 +334,69 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     justfileContent += `@run_${args.appName} version:\n`;
     justfileContent += `\tdocker run -p 3000:3000 {{docker_${args.appName}_name}}:{{version}}\n\n`;
     await fs.appendFile(getJustfilePath(args.projectRoot), justfileContent);
+  }
 
+  async function addI18NToNextApp(args: { appPath: string }) {
+    const packageJsonPath = resolve(args.appPath, "package.json");
+    await updatePackage(packageJsonPath, (pkg) => {
+      pkg.dependencies = pkg.dependencies || {};
+      pkg.dependencies["next-intl"] = Versions["next-intl"];
+    });
+
+    const messagesTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "messages");
+    const messagesTargetDir = resolve(args.appPath, "messages");
+    await fs.cp(messagesTemplateDir, messagesTargetDir, { recursive: true });
+
+    const srcTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "src");
+    const srcTargetDir = resolve(args.appPath, "src");
+    await fs.cp(srcTemplateDir, srcTargetDir, { recursive: true });
+
+    const nextConfigPath = resolve(args.appPath, "next.config.ts");
+    const nextConfigFile = await getSourceFile(nextConfigPath);
+    nextConfigFile.removeDefaultExport();
+    nextConfigFile.addImportDeclaration({
+      moduleSpecifier: "next-intl/plugin",
+      defaultImport: "createNextIntlPlugin",
+    });
+    nextConfigFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "withNextIntl",
+          initializer: "createNextIntlPlugin()",
+        },
+      ],
+    });
+    nextConfigFile.addExportAssignment({
+      expression: "withNextIntl(nextConfig)",
+      isExportEquals: false, // sets to export default
+    });
+    await nextConfigFile.save();
+
+    const layoutPath = resolve(args.appPath, "src", "app", "layout.tsx");
+    const layoutFile = await getSourceFile(layoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "next-intl",
+      namedImports: ["NextIntlClientProvider"],
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding i18n: Default exported function not found in layout.tsx");
+    }
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<NextIntlClientProvider>{children}</NextIntlClientProvider>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
   }
 
   return async (tmpLog) => {
@@ -394,6 +459,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
 
       await addTailwindToNextApp({ appPath });
       await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
+      await addI18NToNextApp({ appPath });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
