@@ -4,10 +4,13 @@ import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
+import { ts } from "ts-morph";
 import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
+import { replaceTextInFile } from "./helpers/text-file";
+import { getSourceFile } from "./helpers/ts-files";
 import Versions from "./versions.json";
 
 async function main() {
@@ -72,6 +75,11 @@ async function main() {
   setupTasks.push({
     title: "Copying VSCode settings file...",
     task: copyVsCodeSettingsFile({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Copying .dockerignore file...",
+    task: copyDockerIgnoreFile({ path: projectPath }),
   });
 
   setupTasks.push({
@@ -218,6 +226,19 @@ function copyVsCodeSettingsFile(args: { path: string }): TaskWithLogDefinition["
   };
 }
 
+function copyDockerIgnoreFile(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      const templateFile = resolve(TEMPLATE_ROOT, "docker", ".dockerignore");
+      const destFile = resolve(args.path, ".dockerignore");
+      await fs.copyFile(templateFile, destFile);
+      return { success: true, message: ".dockerignore file copied" };
+    } catch (err) {
+      return { success: false, message: `Failed to copy .dockerignore file: ${err}` };
+    }
+  };
+}
+
 function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
   return async () => {
     try {
@@ -241,6 +262,22 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
   };
 }
 
+function getJustfilePath(projectPath: string): string {
+  return resolve(projectPath, "justfile");
+}
+
+async function justfileExists(projectPath: string): Promise<boolean> {
+  return await fs.stat(getJustfilePath(projectPath)).then(() => true).catch(() => false);
+}
+
+async function createJustfile(args: { path: string }) {
+  const justfilePath = getJustfilePath(args.path);
+  const exists = await justfileExists(args.path);
+  if (!exists) {
+    await fs.writeFile(justfilePath, "set positional-arguments\n", "utf8");
+  }
+}
+
 function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
   async function addTailwindToNextApp(args: { appPath: string }) {
     const packageJsonPath = resolve(args.appPath, "package.json");
@@ -257,6 +294,44 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     const cssTemplateFile = resolve(TEMPLATE_ROOT, "tailwind", "globals.css");
     const destCssFile = resolve(args.appPath, "src", "app", "globals.css");
     await fs.copyFile(cssTemplateFile, destCssFile);
+  }
+
+  async function addDockerfileToNextApp(args: { appPath: string; appName: string, projectRoot: string }) {
+    const dockerfileTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "Dockerfile");
+    const destDockerfilePath = resolve(args.appPath, "Dockerfile");
+    await fs.copyFile(dockerfileTemplatePath, destDockerfilePath);
+    await replaceTextInFile(destDockerfilePath, "ARG APP_NAME=web", `ARG APP_NAME=${args.appName}`);
+
+    const nextConfigPath = resolve(args.appPath, "next.config.ts");
+    const nextConfigFile = await getSourceFile(nextConfigPath);
+    nextConfigFile.addImportDeclaration({
+      moduleSpecifier: "node:path",
+      defaultImport: "path",
+    });
+    const nextConfigObject = nextConfigFile
+      .getVariableDeclarationOrThrow("nextConfig")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
+    nextConfigObject.addPropertyAssignment({
+      name: "output",
+      initializer: `"standalone"`,
+    });
+    nextConfigObject.addPropertyAssignment({
+      name: "outputFileTracingRoot",
+      initializer: `path.join(import.meta.dirname, '../../')`,
+    });
+    await nextConfigFile.save();
+
+    if (!await justfileExists(args.projectRoot)) {
+      await createJustfile({ path: args.projectRoot });
+    }
+    let justfileContent = "";
+    justfileContent += `docker_${args.appName}_name := ${args.appName}\n\n`;
+    justfileContent += `@build_${args.appName} version:\n`;
+    justfileContent += `\tdocker build -t {{docker_${args.appName}_name}}:{{version}} -f apps/${args.appName}/Dockerfile .\n\n`;
+    justfileContent += `@run_${args.appName} version:\n`;
+    justfileContent += `\tdocker run -p 3000:3000 {{docker_${args.appName}_name}}:{{version}}\n\n`;
+    await fs.appendFile(getJustfilePath(args.projectRoot), justfileContent);
+
   }
 
   return async (tmpLog) => {
@@ -280,7 +355,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
           "--no-react-compiler",
           "--no-tailwind",
           "--import-alias",
-          "@/*"
+          "@/*",
         ],
         {
           onStdout: tmpLog.message,
@@ -318,6 +393,7 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       await fs.copyFile(mainLayoutTemplatePath, destMainLayoutPath);
 
       await addTailwindToNextApp({ appPath });
+      await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
