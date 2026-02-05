@@ -399,6 +399,43 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
     await layoutFile.save();
   }
 
+  async function addLoggerToNextApp(args: { appPath: string }) {
+    const packageJsonPath = resolve(args.appPath, "package.json");
+
+    await updatePackage(packageJsonPath, (pkg) => {
+      pkg.dependencies = pkg.dependencies || {};
+      pkg.dependencies["@logtape/logtape"] = Versions["@logtape/logtape"];
+      pkg.dependencies["@logtape/pretty"] = Versions["@logtape/pretty"];
+    });
+
+    const loggerTemplatePath = resolve(TEMPLATE_ROOT, "logtape", "lib");
+    const destLoggerPath = resolve(args.appPath, "src", "lib");
+    await fs.cp(loggerTemplatePath, destLoggerPath, { recursive: true });
+
+    const instrumentationPath = resolve(args.appPath, "src", "instrumentation.ts");
+    const instrumentationFile = await getSourceFile(instrumentationPath);
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@/lib/logger"
+    });
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@logtape/logtape",
+      namedImports: ["getLogger"],
+    })
+    instrumentationFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "logger",
+          initializer: `getLogger(["next", "instrumentation"])`,
+        },
+      ],
+    });
+    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
+    registerFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).addStatements(`logger.info("Starting instrumentation");`);
+    instrumentationFile.formatText();
+    await instrumentationFile.save();
+  }
+
   return async (tmpLog) => {
     try {
       const appPath = resolve(args.path, "apps", args.name);
@@ -457,9 +494,14 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       const destMainLayoutPath = resolve(appPath, "src", "app", "layout.tsx");
       await fs.copyFile(mainLayoutTemplatePath, destMainLayoutPath);
 
+      const instrumentationTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "instrumentation.ts");
+      const destInstrumentationPath = resolve(appPath, "src", "instrumentation.ts");
+      await fs.copyFile(instrumentationTemplatePath, destInstrumentationPath);
+
       await addTailwindToNextApp({ appPath });
       await addDockerfileToNextApp({ appPath, appName: args.name, projectRoot: args.path });
       await addI18NToNextApp({ appPath });
+      await addLoggerToNextApp({ appPath });
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
