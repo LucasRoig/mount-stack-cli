@@ -4,12 +4,10 @@ import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
-import { type JsxElement, ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
-import { getSourceFile } from "./helpers/ts-files";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import Versions from "./versions.json";
@@ -264,183 +262,6 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
 }
 
 function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
-  async function addI18NToNextApp(args: { appPath: string }) {
-    const packageJsonPath = resolve(args.appPath, "package.json");
-    await updatePackage(packageJsonPath, (pkg) => {
-      pkg.dependencies = pkg.dependencies || {};
-      pkg.dependencies["next-intl"] = Versions["next-intl"];
-    });
-
-    const messagesTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "messages");
-    const messagesTargetDir = resolve(args.appPath, "messages");
-    await fs.cp(messagesTemplateDir, messagesTargetDir, { recursive: true });
-
-    const srcTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "src");
-    const srcTargetDir = resolve(args.appPath, "src");
-    await fs.cp(srcTemplateDir, srcTargetDir, { recursive: true });
-
-    const nextConfigPath = resolve(args.appPath, "next.config.ts");
-    const nextConfigFile = await getSourceFile(nextConfigPath);
-    nextConfigFile.removeDefaultExport();
-    nextConfigFile.addImportDeclaration({
-      moduleSpecifier: "next-intl/plugin",
-      defaultImport: "createNextIntlPlugin",
-    });
-    nextConfigFile.addVariableStatement({
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        {
-          name: "withNextIntl",
-          initializer: "createNextIntlPlugin()",
-        },
-      ],
-    });
-    nextConfigFile.addExportAssignment({
-      expression: "withNextIntl(nextConfig)",
-      isExportEquals: false, // sets to export default
-    });
-    await nextConfigFile.save();
-
-    const layoutPath = resolve(args.appPath, "src", "app", "layout.tsx");
-    const layoutFile = await getSourceFile(layoutPath);
-    layoutFile.addImportDeclaration({
-      moduleSpecifier: "next-intl",
-      namedImports: ["NextIntlClientProvider"],
-    });
-    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
-    if (layoutFunction === undefined) {
-      throw new Error("Error while adding i18n: Default exported function not found in layout.tsx");
-    }
-    const jsxExpressions = layoutFunction
-      .getBodyOrThrow()
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
-      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
-    for (const jsxExpression of jsxExpressions) {
-      const text = jsxExpression.getText();
-      if (text.match(/.*\{\s*children\s*\}.*/)) {
-        const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText("<NextIntlClientProvider>{children}</NextIntlClientProvider>");
-        break;
-      }
-    }
-    layoutFile.formatText();
-    await layoutFile.save();
-  }
-
-  async function addLoggerToNextApp(args: { appPath: string }) {
-    const packageJsonPath = resolve(args.appPath, "package.json");
-
-    await updatePackage(packageJsonPath, (pkg) => {
-      pkg.dependencies = pkg.dependencies || {};
-      pkg.dependencies["@logtape/logtape"] = Versions["@logtape/logtape"];
-      pkg.dependencies["@logtape/pretty"] = Versions["@logtape/pretty"];
-    });
-
-    const loggerTemplatePath = resolve(TEMPLATE_ROOT, "logtape", "lib");
-    const destLoggerPath = resolve(args.appPath, "src", "lib");
-    await fs.cp(loggerTemplatePath, destLoggerPath, { recursive: true });
-
-    const instrumentationPath = resolve(args.appPath, "src", "instrumentation.ts");
-    const instrumentationFile = await getSourceFile(instrumentationPath);
-    instrumentationFile.addImportDeclaration({
-      moduleSpecifier: "@/lib/logger",
-    });
-    instrumentationFile.addImportDeclaration({
-      moduleSpecifier: "@logtape/logtape",
-      namedImports: ["getLogger"],
-    });
-    instrumentationFile.addVariableStatement({
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        {
-          name: "logger",
-          initializer: `getLogger(["next", "instrumentation"])`,
-        },
-      ],
-    });
-    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
-      .addStatements(`logger.info("Starting instrumentation");`);
-    instrumentationFile.formatText();
-    await instrumentationFile.save();
-  }
-
-  async function addEnvFileManagementToNextApp(args: { appPath: string }) {
-    const envLocalTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "env.local.sample");
-    const envLocalSampleDestPath = resolve(args.appPath, "env.local.sample");
-    const envLocalDestPath = resolve(args.appPath, "env.local");
-    await fs.copyFile(envLocalTemplatePath, envLocalSampleDestPath);
-    await fs.copyFile(envLocalTemplatePath, envLocalDestPath);
-
-    const packageJsonPath = resolve(args.appPath, "package.json");
-    await updatePackage(packageJsonPath, (pkg) => {
-      pkg.dependencies = pkg.dependencies || {};
-      pkg.dependencies.zod = Versions.zod;
-    });
-
-    const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
-    const destEnvDir = resolve(args.appPath, "src", "env");
-    const envTsDestPath = resolve(destEnvDir, "env.ts");
-    await fs.mkdir(destEnvDir, { recursive: true });
-    await fs.cp(envTsTemplatePath, envTsDestPath);
-
-    const envContextTemplatePath = resolve(TEMPLATE_ROOT, "env", "client-env-context.tsx");
-    const envContextDestPath = resolve(destEnvDir, "client-env-context.tsx");
-    await fs.cp(envContextTemplatePath, envContextDestPath);
-
-    const instrumentationPath = resolve(args.appPath, "src", "instrumentation.ts");
-    const instrumentationFile = await getSourceFile(instrumentationPath);
-    instrumentationFile.addImportDeclaration({
-      moduleSpecifier: "@/env/env",
-      namedImports: ["printEnv"],
-    });
-    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
-      .addStatements(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
-    instrumentationFile.formatText();
-    await instrumentationFile.save();
-
-    const layoutPath = resolve(args.appPath, "src", "app", "layout.tsx");
-    const layoutFile = await getSourceFile(layoutPath);
-    layoutFile.addImportDeclaration({
-      moduleSpecifier: "@/env/client-env-context",
-      namedImports: ["ClientEnvContextProvider"],
-    });
-    layoutFile.addImportDeclaration({
-      moduleSpecifier: "@/env/env",
-      namedImports: ["getEnv"],
-    });
-    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
-    if (layoutFunction === undefined) {
-      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
-    }
-    layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(0, {
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        {
-          name: "env",
-          initializer: "getEnv()",
-        },
-      ],
-    });
-    const jsxExpressions = layoutFunction
-      .getBodyOrThrow()
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
-      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
-    for (const jsxExpression of jsxExpressions) {
-      const text = jsxExpression.getText();
-      if (text.match(/.*\{\s*children\s*\}.*/)) {
-        const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText("<ClientEnvContextProvider clientEnv={env.client}>{children}</ClientEnvContextProvider>");
-        break;
-      }
-    }
-    layoutFile.formatText();
-    await layoutFile.save();
-  }
-
   return async (tmpLog) => {
     try {
       const monoRepoInstaller = new MonoRepoInstaller(args.path);
@@ -454,9 +275,9 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       await nextApp.addTailwind();
       await nextApp.addDocker();
       await nextApp.addReactQuery();
-      await addI18NToNextApp({ appPath: nextApp.nextAppRootPath });
-      await addLoggerToNextApp({ appPath: nextApp.nextAppRootPath });
-      await addEnvFileManagementToNextApp({ appPath: nextApp.nextAppRootPath });
+      await nextApp.addI18n();
+      await nextApp.addLogger();
+      await nextApp.addEnvFileManagement();
 
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
-import { resolve } from "node:path";
+import path, { resolve } from "node:path";
 import { updatePackage } from "pkg-types";
-import { type JsxElement, ts } from "ts-morph";
+import { type JsxElement, ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
 import { runProcess } from "../helpers/run-process";
 import type { TaskLogger } from "../helpers/tasks-with-logs";
@@ -22,6 +22,9 @@ export class NextAppInstaller {
   public readonly appName: string;
   private monoRepoInstaller: MonoRepoInstaller;
   private logger: TaskLogger;
+  private envSampleFilePath: string;
+  private envLocalFilePath: string;
+  private envTsFilePath: string;
   private tsConfigPath: string;
   private globalsCssPath: string;
   private rootLayoutPath: string;
@@ -34,6 +37,9 @@ export class NextAppInstaller {
   private isTailwindInstalled = false;
   private isDockerInstalled = false;
   private isReactQueryInstalled = false;
+  private isI18nInstalled = false;
+  private isLoggerInstalled = false;
+  private isEnvFileManagementInstalled = false;
 
   public static async create(args: NextAppInstallerArgs) {
     const installer = new NextAppInstaller(args);
@@ -54,6 +60,9 @@ export class NextAppInstaller {
     this.instrumentationPath = resolve(this.srcPath, "instrumentation.ts");
     this.packageJsonPath = resolve(this.nextAppRootPath, "package.json");
     this.nextConfigPath = resolve(this.nextAppRootPath, "next.config.ts");
+    this.envSampleFilePath = resolve(this.nextAppRootPath, "env.local.sample");
+    this.envLocalFilePath = resolve(this.nextAppRootPath, "env.local");
+    this.envTsFilePath = resolve(this.srcPath, "env", "env.ts");
     this.logger = args.logger;
   }
 
@@ -218,5 +227,178 @@ export class NextAppInstaller {
     await layoutFile.save();
 
     this.isReactQueryInstalled = true;
+  }
+
+  public async addI18n() {
+    if (this.isI18nInstalled) {
+      throw new Error("i18n is already installed");
+    }
+
+    this.addDependencyToPackageJson("next-intl", Versions["next-intl"]);
+
+    const messagesTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "messages");
+    const messagesTargetDir = resolve(this.nextAppRootPath, "messages");
+    await fs.cp(messagesTemplateDir, messagesTargetDir, { recursive: true });
+
+    const srcTemplateDir = resolve(TEMPLATE_ROOT, "next-intl", "src");
+    await fs.cp(srcTemplateDir, this.srcPath, { recursive: true });
+
+    const nextConfigFile = await getSourceFile(this.nextConfigPath);
+    nextConfigFile.removeDefaultExport();
+    nextConfigFile.addImportDeclaration({
+      moduleSpecifier: "next-intl/plugin",
+      defaultImport: "createNextIntlPlugin",
+    });
+    nextConfigFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "withNextIntl",
+          initializer: "createNextIntlPlugin()",
+        },
+      ],
+    });
+    nextConfigFile.addExportAssignment({
+      expression: "withNextIntl(nextConfig)",
+      isExportEquals: false, // sets to export default
+    });
+    await nextConfigFile.save();
+
+    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "next-intl",
+      namedImports: ["NextIntlClientProvider"],
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding i18n: Default exported function not found in layout.tsx");
+    }
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<NextIntlClientProvider>{children}</NextIntlClientProvider>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
+
+    this.isI18nInstalled = true;
+  }
+
+  public async addLogger() {
+    if (this.isLoggerInstalled) {
+      throw new Error("Logger is already installed");
+    }
+
+    await this.addDependencyToPackageJson("@logtape/logtape", Versions["@logtape/logtape"]);
+    await this.addDependencyToPackageJson("@logtape/pretty", Versions["@logtape/pretty"]);
+
+    const loggerTemplatePath = resolve(TEMPLATE_ROOT, "logtape", "lib");
+    await fs.cp(loggerTemplatePath, this.libPath, { recursive: true });
+
+    const instrumentationFile = await getSourceFile(this.instrumentationPath);
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@/lib/logger",
+    });
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@logtape/logtape",
+      namedImports: ["getLogger"],
+    });
+    instrumentationFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "logger",
+          initializer: `getLogger(["next", "instrumentation"])`,
+        },
+      ],
+    });
+    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
+    registerFunction
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
+      .addStatements(`logger.info("Starting instrumentation");`);
+    instrumentationFile.formatText();
+    await instrumentationFile.save();
+
+    this.isLoggerInstalled = true;
+  }
+
+  public async addEnvFileManagement() {
+    if (this.isEnvFileManagementInstalled) {
+      throw new Error("Env file management is already installed");
+    }
+
+    const envLocalTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "env.local.sample");
+    await fs.copyFile(envLocalTemplatePath, this.envSampleFilePath);
+    await fs.copyFile(envLocalTemplatePath, this.envLocalFilePath);
+
+    await this.addDevDependencyToPackageJson("zod", Versions.zod);
+
+
+    const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
+    await fs.mkdir(path.dirname(this.envTsFilePath), { recursive: true });
+    await fs.cp(envTsTemplatePath, this.envTsFilePath);
+
+    const envContextTemplatePath = resolve(TEMPLATE_ROOT, "env", "client-env-context.tsx");
+    const envContextDestPath = resolve(path.dirname(this.envTsFilePath), "client-env-context.tsx");
+    await fs.cp(envContextTemplatePath, envContextDestPath);
+
+    const instrumentationFile = await getSourceFile(this.instrumentationPath);
+    instrumentationFile.addImportDeclaration({
+      moduleSpecifier: "@/env/env",
+      namedImports: ["printEnv"],
+    });
+    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
+    registerFunction
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
+      .addStatements(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
+    instrumentationFile.formatText();
+    await instrumentationFile.save();
+
+    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "@/env/client-env-context",
+      namedImports: ["ClientEnvContextProvider"],
+    });
+    layoutFile.addImportDeclaration({
+      moduleSpecifier: "@/env/env",
+      namedImports: ["getEnv"],
+    });
+    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
+    if (layoutFunction === undefined) {
+      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
+    }
+    layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(0, {
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: "env",
+          initializer: "getEnv()",
+        },
+      ],
+    });
+    const jsxExpressions = layoutFunction
+      .getBodyOrThrow()
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
+    for (const jsxExpression of jsxExpressions) {
+      const text = jsxExpression.getText();
+      if (text.match(/.*\{\s*children\s*\}.*/)) {
+        const parent = jsxExpression.getParent() as JsxElement;
+        parent.setBodyText("<ClientEnvContextProvider clientEnv={env.client}>{children}</ClientEnvContextProvider>");
+        break;
+      }
+    }
+    layoutFile.formatText();
+    await layoutFile.save();
+
+
+    this.isEnvFileManagementInstalled = true;
   }
 }
