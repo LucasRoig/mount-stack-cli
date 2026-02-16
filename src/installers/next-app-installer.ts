@@ -3,6 +3,7 @@ import path, { resolve } from "node:path";
 import { updatePackage } from "pkg-types";
 import { ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
+import { NextInstrumentationFile } from "../helpers/next-instrumentation-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
 import { runProcess } from "../helpers/run-process";
 import type { TaskLogger } from "../helpers/tasks-with-logs";
@@ -271,7 +272,7 @@ export class NextAppInstaller {
     const loggerTemplatePath = resolve(TEMPLATE_ROOT, "logtape", "lib");
     await fs.cp(loggerTemplatePath, this.libPath, { recursive: true });
 
-    const instrumentationFile = await getSourceFile(this.instrumentationPath);
+    const instrumentationFile = await NextInstrumentationFile.fromPath(this.instrumentationPath);
     instrumentationFile.addImportDeclaration({
       moduleSpecifier: "@/lib/logger",
     });
@@ -279,7 +280,7 @@ export class NextAppInstaller {
       moduleSpecifier: "@logtape/logtape",
       namedImports: ["getLogger"],
     });
-    instrumentationFile.addVariableStatement({
+    instrumentationFile.insertRootVariableStatement(0, {
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
         {
@@ -288,11 +289,7 @@ export class NextAppInstaller {
         },
       ],
     });
-    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
-      .addStatements(`logger.info("Starting instrumentation");`);
-    instrumentationFile.formatText();
+    instrumentationFile.addStatementsToRegisterFunction(`logger.info("Starting instrumentation");`);
     await instrumentationFile.save();
 
     this.isLoggerInstalled = true;
@@ -317,16 +314,12 @@ export class NextAppInstaller {
     const envContextDestPath = resolve(path.dirname(this.envTsFilePath), "client-env-context.tsx");
     await fs.cp(envContextTemplatePath, envContextDestPath);
 
-    const instrumentationFile = await getSourceFile(this.instrumentationPath);
+    const instrumentationFile = await NextInstrumentationFile.fromPath(this.instrumentationPath);
     instrumentationFile.addImportDeclaration({
       moduleSpecifier: "@/env/env",
       namedImports: ["printEnv"],
     });
-    const registerFunction = instrumentationFile.getFunctionOrThrow("register");
-    registerFunction
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
-      .addStatements(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
-    instrumentationFile.formatText();
+    instrumentationFile.addStatementsToRegisterFunction(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
     await instrumentationFile.save();
 
     const layoutFile = await NextLayoutFile.fromPath(this.rootLayoutPath);
@@ -347,7 +340,10 @@ export class NextAppInstaller {
         },
       ],
     });
-    layoutFile.wrapChildrenWithComponent("<ClientEnvContextProvider clientEnv={env.client}>", "</ClientEnvContextProvider>");
+    layoutFile.wrapChildrenWithComponent(
+      "<ClientEnvContextProvider clientEnv={env.client}>",
+      "</ClientEnvContextProvider>",
+    );
     await layoutFile.save();
 
     this.isEnvFileManagementInstalled = true;
