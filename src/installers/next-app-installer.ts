@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { updatePackage } from "pkg-types";
-import { type JsxElement, ts, VariableDeclarationKind } from "ts-morph";
+import { ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
+import { NextLayoutFile } from "../helpers/next-layout-file";
 import { runProcess } from "../helpers/run-process";
 import type { TaskLogger } from "../helpers/tasks-with-logs";
 import { replaceTextInFile } from "../helpers/text-file";
@@ -202,28 +203,12 @@ export class NextAppInstaller {
     const appTemplatePath = resolve(TEMPLATE_ROOT, "react-query", "app");
     await fs.cp(appTemplatePath, this.appRouterDirPath, { recursive: true });
 
-    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    const layoutFile = await NextLayoutFile.fromPath(this.rootLayoutPath);
     layoutFile.addImportDeclaration({
       moduleSpecifier: "./providers",
       defaultImport: "Providers",
     });
-    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
-    if (layoutFunction === undefined) {
-      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
-    }
-    const jsxExpressions = layoutFunction
-      .getBodyOrThrow()
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
-      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
-    for (const jsxExpression of jsxExpressions) {
-      const text = jsxExpression.getText();
-      if (text.match(/.*\{\s*children\s*\}.*/)) {
-        const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText("<Providers>{children}</Providers>");
-        break;
-      }
-    }
-    layoutFile.formatText();
+    layoutFile.wrapChildrenWithComponent("<Providers>", "</Providers>");
     await layoutFile.save();
 
     this.isReactQueryInstalled = true;
@@ -264,28 +249,12 @@ export class NextAppInstaller {
     });
     await nextConfigFile.save();
 
-    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    const layoutFile = await NextLayoutFile.fromPath(this.rootLayoutPath);
     layoutFile.addImportDeclaration({
       moduleSpecifier: "next-intl",
       namedImports: ["NextIntlClientProvider"],
     });
-    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
-    if (layoutFunction === undefined) {
-      throw new Error("Error while adding i18n: Default exported function not found in layout.tsx");
-    }
-    const jsxExpressions = layoutFunction
-      .getBodyOrThrow()
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
-      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
-    for (const jsxExpression of jsxExpressions) {
-      const text = jsxExpression.getText();
-      if (text.match(/.*\{\s*children\s*\}.*/)) {
-        const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText("<NextIntlClientProvider>{children}</NextIntlClientProvider>");
-        break;
-      }
-    }
-    layoutFile.formatText();
+    layoutFile.wrapChildrenWithComponent("<NextIntlClientProvider>", "</NextIntlClientProvider>");
     await layoutFile.save();
 
     this.isI18nInstalled = true;
@@ -340,7 +309,6 @@ export class NextAppInstaller {
 
     await this.addDevDependencyToPackageJson("zod", Versions.zod);
 
-
     const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
     await fs.mkdir(path.dirname(this.envTsFilePath), { recursive: true });
     await fs.cp(envTsTemplatePath, this.envTsFilePath);
@@ -361,7 +329,7 @@ export class NextAppInstaller {
     instrumentationFile.formatText();
     await instrumentationFile.save();
 
-    const layoutFile = await getSourceFile(this.rootLayoutPath);
+    const layoutFile = await NextLayoutFile.fromPath(this.rootLayoutPath);
     layoutFile.addImportDeclaration({
       moduleSpecifier: "@/env/client-env-context",
       namedImports: ["ClientEnvContextProvider"],
@@ -370,11 +338,7 @@ export class NextAppInstaller {
       moduleSpecifier: "@/env/env",
       namedImports: ["getEnv"],
     });
-    const layoutFunction = layoutFile.getFunctions().find((fn) => fn.isDefaultExport());
-    if (layoutFunction === undefined) {
-      throw new Error("Error while adding env file management: Default exported function not found in layout.tsx");
-    }
-    layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(0, {
+    layoutFile.addVariableDeclarationInLayoutFunction(0, {
       declarationKind: VariableDeclarationKind.Const,
       declarations: [
         {
@@ -383,21 +347,8 @@ export class NextAppInstaller {
         },
       ],
     });
-    const jsxExpressions = layoutFunction
-      .getBodyOrThrow()
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
-      .getDescendantsOfKind(ts.SyntaxKind.JsxExpression);
-    for (const jsxExpression of jsxExpressions) {
-      const text = jsxExpression.getText();
-      if (text.match(/.*\{\s*children\s*\}.*/)) {
-        const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText("<ClientEnvContextProvider clientEnv={env.client}>{children}</ClientEnvContextProvider>");
-        break;
-      }
-    }
-    layoutFile.formatText();
+    layoutFile.wrapChildrenWithComponent("<ClientEnvContextProvider clientEnv={env.client}>", "</ClientEnvContextProvider>");
     await layoutFile.save();
-
 
     this.isEnvFileManagementInstalled = true;
   }
