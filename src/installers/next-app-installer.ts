@@ -319,7 +319,9 @@ export class NextAppInstaller {
       moduleSpecifier: "@/env/env",
       namedImports: ["printEnv"],
     });
-    instrumentationFile.addStatementsToRegisterFunction(await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"));
+    instrumentationFile.addStatementsToRegisterFunction(
+      await fs.readFile(resolve(TEMPLATE_ROOT, "env", "instrumentation.part.ts"), "utf8"),
+    );
     await instrumentationFile.save();
 
     const layoutFile = await NextLayoutFile.fromPath(this.rootLayoutPath);

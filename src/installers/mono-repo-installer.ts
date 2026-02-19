@@ -1,13 +1,23 @@
 import fs from "node:fs/promises";
 import { resolve } from "node:path";
 
+type MonoRepoInstallerArgs = {
+  rootPath: string;
+  appName: string;
+};
 export class MonoRepoInstaller {
   public readonly rootPath: string;
+  public readonly packagesPath: string;
+  public readonly appName: string;
+  public readonly rootPackageJsonPath: string;
   private justfilePath: string;
 
-  constructor(rootPath: string) {
-    this.rootPath = rootPath;
-    this.justfilePath = resolve(rootPath, "justfile");
+  constructor(args: MonoRepoInstallerArgs) {
+    this.rootPath = args.rootPath;
+    this.appName = args.appName;
+    this.rootPackageJsonPath = resolve(this.rootPath, "package.json");
+    this.justfilePath = resolve(this.rootPath, "justfile");
+    this.packagesPath = resolve(this.rootPath, "packages");
   }
 
   public async justfileExists(): Promise<boolean> {

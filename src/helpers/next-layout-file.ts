@@ -26,7 +26,10 @@ export class NextLayoutFile {
     this.file.addImportDeclaration(importDeclaration);
   }
 
-  public addVariableDeclarationInLayoutFunction(index: number, variableDeclaration: Parameters<SourceFile["insertVariableStatement"]>[1]) {
+  public addVariableDeclarationInLayoutFunction(
+    index: number,
+    variableDeclaration: Parameters<SourceFile["insertVariableStatement"]>[1],
+  ) {
     const layoutFunction = this.getLayoutFunction();
     layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(index, variableDeclaration);
   }

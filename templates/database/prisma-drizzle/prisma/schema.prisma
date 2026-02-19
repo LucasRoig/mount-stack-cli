@@ -1,0 +1,8 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator drizzle {
+  provider = "prisma-generator-drizzle"
+  output   = "../src/drizzle-generated"
+}

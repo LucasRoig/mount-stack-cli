@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import process from "node:process";
 import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
@@ -8,9 +8,14 @@ import { TEMPLATE_ROOT } from "./consts";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
+import { DatabaseInstaller } from "./installers/database-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import Versions from "./versions.json";
+
+type Context = {
+  monoRepoInstaller: MonoRepoInstaller | undefined;
+};
 
 async function main() {
   const cwd = process.cwd();
@@ -37,13 +42,18 @@ async function main() {
   });
 
   const projectPath = resolve(cwd, relativeProjectPath as string);
+  const appName = basename(projectPath).replace(/\\/g, "").replace(/\//g, "").replace(/\s/g, "-").toLowerCase();
   log.info(`Project path ${projectPath}`);
+  log.info(`App name ${appName}`);
+  const context: Context = {
+    monoRepoInstaller: undefined,
+  };
 
   const setupTasks: TaskWithLogDefinition[] = [];
 
   setupTasks.push({
     title: "Initializing turbo repo...",
-    task: initTurboRepo({ path: projectPath }),
+    task: initTurboRepo({ path: projectPath, appName, context }),
   });
 
   setupTasks.push({
@@ -88,7 +98,12 @@ async function main() {
 
   setupTasks.push({
     title: "Creating Next.js app...",
-    task: createNextApp({ path: projectPath, name: "web-exemple" }),
+    task: createNextApp({ path: projectPath, name: "web-exemple", context }),
+  });
+
+  setupTasks.push({
+    title: "Adding database package...",
+    task: addDatabasePackage({ path: projectPath, context }),
   });
 
   try {
@@ -100,7 +115,7 @@ async function main() {
   outro("Done !");
 }
 
-function initTurboRepo(args: { path: string }): TaskWithLogDefinition["task"] {
+function initTurboRepo(args: { path: string; appName: string; context: Context }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
       await runProcess(
@@ -122,6 +137,10 @@ function initTurboRepo(args: { path: string }): TaskWithLogDefinition["task"] {
       );
       const vsCodeSettingsPath = resolve(args.path, ".vscode");
       await fs.rm(vsCodeSettingsPath, { recursive: true, force: true });
+      args.context.monoRepoInstaller = new MonoRepoInstaller({
+        rootPath: args.path,
+        appName: args.appName,
+      });
       return { success: true, message: "Turbo repo initialized" };
     } catch (err) {
       return { success: false, message: `Turbo repo initialization failed: ${err}` };
@@ -261,15 +280,17 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
   };
 }
 
-function createNextApp(args: { path: string; name: string }): TaskWithLogDefinition["task"] {
+function createNextApp(args: { path: string; name: string; context: Context }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
-      const monoRepoInstaller = new MonoRepoInstaller(args.path);
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
       const nextApp = await NextAppInstaller.create({
         path: args.path,
         name: args.name,
         logger: tmpLog,
-        monorepo: monoRepoInstaller,
+        monorepo: args.context.monoRepoInstaller,
       });
 
       await nextApp.addTailwind();
@@ -282,6 +303,23 @@ function createNextApp(args: { path: string; name: string }): TaskWithLogDefinit
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
       return { success: false, message: `Failed to create ${args.name} Next.js app: ${err}` };
+    }
+  };
+}
+
+function addDatabasePackage(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      await DatabaseInstaller.create({
+        monoRepoInstaller: args.context.monoRepoInstaller,
+      });
+
+      return { success: true, message: `Database package created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create database package: ${err}` };
     }
   };
 }

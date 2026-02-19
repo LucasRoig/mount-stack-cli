@@ -1,0 +1,22 @@
+{
+  "name": "@repo/package-with-build",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "vs-code-lsp": {
+        "types": "./dist/index.d.ts"
+      },
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsc -p tsconfig.build-types.json --watch",
+    "build": "tsc -p tsconfig.build-types.json",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*"
+  },
+  "dependencies": {}
+}

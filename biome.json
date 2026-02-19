@@ -40,14 +40,6 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": [
-      "**",
-      "!**/node_modules",
-      "!**/dist",
-      "!**/generated",
-      "!**/coverage",
-      "!templates",
-      "!my-app"
-    ]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/generated", "!**/coverage", "!templates", "!my-app"]
   }
 }
