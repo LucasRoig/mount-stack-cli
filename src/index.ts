@@ -192,7 +192,8 @@ function setTypescriptVersion(args: { path: string }): TaskWithLogDefinition["ta
     const packageJsonPath = resolve(args.path, "package.json");
     try {
       await updatePackage(packageJsonPath, (pkg) => {
-        pkg.devDependencies!.typescript = Versions.typescript;
+        pkg.devDependencies = pkg.devDependencies || {};
+        pkg.devDependencies.typescript = Versions.typescript;
       });
       return { success: true, message: `TypeScript version set to ${Versions.typescript}` };
     } catch (err) {

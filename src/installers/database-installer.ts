@@ -4,6 +4,7 @@ import { updatePackage } from "pkg-types";
 import { TEMPLATE_ROOT } from "../consts";
 import { replaceTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
+import { DockerComposeInstaller } from "./docker-compose-installer";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
 import { TurboPackageInstaller } from "./turbo-package-installer";
 
@@ -55,6 +56,21 @@ export class DatabaseInstaller {
         `pnpm --dir ${packageInstaller.relativePathFromMonorepoRoot} exec prisma generate`;
       pkg.scripts[`${scriptPrefix}db:migrate`] =
         `pnpm --dir ${packageInstaller.relativePathFromMonorepoRoot} exec prisma migrate`;
+    });
+
+    const dockerComposeInstaller = await DockerComposeInstaller.create({
+      path: path.resolve(args.monoRepoInstaller.rootPath, "docker-compose.yml"),
+    });
+    await dockerComposeInstaller.addService({
+      serviceName: "database",
+      containerName: `${args.monoRepoInstaller.appName}-database`,
+      image: "postgres:18",
+      ports: ["5432:5432"],
+      environment: {
+        POSTGRES_USER: "postgres",
+        POSTGRES_PASSWORD: "postgres",
+        POSTGRES_DB: args.monoRepoInstaller.appName,
+      },
     });
   }
 }
