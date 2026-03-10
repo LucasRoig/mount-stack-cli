@@ -18,6 +18,9 @@
   "prisma": "^7.4.0",
   "prisma-generator-drizzle": "0.7.6",
   "@orpc/server": "^1.13.6",
+  "@orpc/client": "^1.13.6",
+  "@orpc/contract": "^1.13.6",
+  "@orpc/tanstack-query": "^1.13.6",
   "neverthrow": "^8.2.0",
   "postgres-docker-image": "postgres:18"
 }

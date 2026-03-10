@@ -16,6 +16,7 @@ import Versions from "./versions.json";
 
 type Context = {
   monoRepoInstaller: MonoRepoInstaller | undefined;
+  nextAppInstaller: NextAppInstaller | undefined;
 };
 
 async function main() {
@@ -48,6 +49,7 @@ async function main() {
   log.info(`App name ${appName}`);
   const context: Context = {
     monoRepoInstaller: undefined,
+    nextAppInstaller: undefined,
   };
 
   const setupTasks: TaskWithLogDefinition[] = [];
@@ -299,6 +301,7 @@ function createNextApp(args: { path: string; name: string; context: Context }): 
         logger: tmpLog,
         monorepo: args.context.monoRepoInstaller,
       });
+      args.context.nextAppInstaller = nextApp;
 
       await nextApp.addTailwind();
       await nextApp.addDocker();
@@ -337,8 +340,12 @@ function addOrpcApiPackage(args: { path: string; context: Context }): TaskWithLo
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
+      if (!args.context.nextAppInstaller) {
+        throw new Error("NextAppInstaller not initialized");
+      }
       await OrpcInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
+        nextAppInstaller: args.context.nextAppInstaller,
       });
 
       return { success: true, message: `ORPC API package created` };

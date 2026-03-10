@@ -33,7 +33,7 @@ export class NextAppInstaller {
   private instrumentationPath: string;
   private packageJsonPath: string;
   private nextConfigPath: string;
-  private srcPath: string;
+  public readonly srcPath: string;
   private libPath: string;
   private appRouterDirPath: string;
   private isTailwindInstalled = false;
@@ -113,14 +113,14 @@ export class NextAppInstaller {
     await this.addDevDependencyToPackageJson("@repo/typescript-config", "workspace:*");
   }
 
-  private async addDependencyToPackageJson(dep: string, version: string) {
+  public async addDependencyToPackageJson(dep: string, version: string) {
     await updatePackage(this.packageJsonPath, (pkg) => {
       pkg.dependencies = pkg.dependencies || {};
       pkg.dependencies[dep] = version;
     });
   }
 
-  private async addDevDependencyToPackageJson(dep: string, version: string) {
+  public async addDevDependencyToPackageJson(dep: string, version: string) {
     await updatePackage(this.packageJsonPath, (pkg) => {
       pkg.devDependencies = pkg.devDependencies || {};
       pkg.devDependencies[dep] = version;
