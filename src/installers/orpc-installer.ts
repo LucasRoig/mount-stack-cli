@@ -18,7 +18,7 @@ export class OrpcInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: OrpcInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({

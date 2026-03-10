@@ -297,7 +297,8 @@ export class NextAppInstaller {
 
   public async addLoggerDeclaration(category: string[]) {
     const loggerFile = await getSourceFile(resolve(this.libPath, "logger.ts"));
-    loggerFile.getVariableDeclarationOrThrow("loggers")
+    loggerFile
+      .getVariableDeclarationOrThrow("loggers")
       .getChildAtIndexIfKindOrThrow(2, ts.SyntaxKind.ArrayLiteralExpression)
       .addElement(`{ category: ["${category.join('","')}"], sinks: [sink], lowestLevel: "debug" }`);
     loggerFile.formatText();
