@@ -11,6 +11,7 @@ import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-
 import { DatabaseInstaller } from "./installers/database-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
+import { OrpcInstaller } from "./installers/orpc-installer";
 import Versions from "./versions.json";
 
 type Context = {
@@ -104,6 +105,11 @@ async function main() {
   setupTasks.push({
     title: "Adding database package...",
     task: addDatabasePackage({ path: projectPath, context }),
+  });
+
+  setupTasks.push({
+    title: "Adding ORPC API package...",
+    task: addOrpcApiPackage({ path: projectPath, context }),
   });
 
   try {
@@ -321,6 +327,23 @@ function addDatabasePackage(args: { path: string; context: Context }): TaskWithL
       return { success: true, message: `Database package created` };
     } catch (err) {
       return { success: false, message: `Failed to create database package: ${err}` };
+    }
+  };
+}
+
+function addOrpcApiPackage(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async () => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      await OrpcInstaller.create({
+        monoRepoInstaller: args.context.monoRepoInstaller,
+      });
+
+      return { success: true, message: `ORPC API package created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create ORPC API package: ${err}` };
     }
   };
 }
