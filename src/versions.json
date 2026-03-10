@@ -22,6 +22,7 @@
   "@orpc/contract": "^1.13.6",
   "@orpc/tanstack-query": "^1.13.6",
   "neverthrow": "^8.2.0",
+  "@types/node": "^25.4.0",
   "postgres-docker-image": "postgres:18",
   "node": "25.8.0",
   "pnpm": "10.32.0"

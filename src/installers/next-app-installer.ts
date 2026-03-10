@@ -62,8 +62,8 @@ export class NextAppInstaller {
     this.instrumentationPath = resolve(this.srcPath, "instrumentation.ts");
     this.packageJsonPath = resolve(this.nextAppRootPath, "package.json");
     this.nextConfigPath = resolve(this.nextAppRootPath, "next.config.ts");
-    this.envSampleFilePath = resolve(this.nextAppRootPath, "env.local.sample");
-    this.envLocalFilePath = resolve(this.nextAppRootPath, "env.local");
+    this.envSampleFilePath = resolve(this.nextAppRootPath, ".env.local.sample");
+    this.envLocalFilePath = resolve(this.nextAppRootPath, ".env.local");
     this.envTsFilePath = resolve(this.srcPath, "env", "env.ts");
     this.logger = args.logger;
   }
@@ -94,6 +94,12 @@ export class NextAppInstaller {
         onStderr: this.logger.message,
       },
     );
+
+    const badPnpmWorkspaceFilePath = resolve(this.nextAppRootPath, "pnpm-workspace.yaml");
+    if (await fs.stat(badPnpmWorkspaceFilePath).catch(() => false)) {
+      await fs.rm(badPnpmWorkspaceFilePath);
+    }
+
     const tsConfigTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "tsconfig.json");
     await fs.copyFile(tsConfigTemplatePath, this.tsConfigPath);
 

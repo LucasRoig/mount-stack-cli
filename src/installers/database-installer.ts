@@ -20,7 +20,7 @@ export class DatabaseInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: DatabaseInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({
@@ -37,6 +37,7 @@ export class DatabaseInstaller {
       "prisma-generator-drizzle",
       Versions["prisma-generator-drizzle"],
     );
+    await packageInstaller.addDevDependencyToPackageJson("@types/node", Versions["@types/node"]);
 
     await packageInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
 

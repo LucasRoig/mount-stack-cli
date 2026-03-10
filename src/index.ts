@@ -18,6 +18,7 @@ import Versions from "./versions.json";
 type Context = {
   monoRepoInstaller: MonoRepoInstaller | undefined;
   nextAppInstaller: NextAppInstaller | undefined;
+  databaseInstaller: DatabaseInstaller | undefined;
 };
 
 async function main() {
@@ -51,6 +52,7 @@ async function main() {
   const context: Context = {
     monoRepoInstaller: undefined,
     nextAppInstaller: undefined,
+    databaseInstaller: undefined
   };
 
   const setupTasks: TaskWithLogDefinition[] = [];
@@ -118,6 +120,11 @@ async function main() {
   setupTasks.push({
     title: "Installing dependencies...",
     task: installDependencies({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Generating database...",
+    task: generateDatabase({ path: projectPath }),
   });
 
   setupTasks.push({
@@ -351,9 +358,10 @@ function addDatabasePackage(args: { path: string; context: Context }): TaskWithL
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
-      await DatabaseInstaller.create({
+      const databaseInstaller = await DatabaseInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
       });
+      args.context.databaseInstaller = databaseInstaller;
 
       await Git.commitAllFiles({ cwd: args.path, message: "chore: create database package" });
       return { success: true, message: `Database package created` };
@@ -412,6 +420,22 @@ function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
       return { success: true, message: `pnpm fix ran successfully` };
     } catch (err) {
       return { success: false, message: `Failed to run pnpm fix: ${err}` };
+    }
+  };
+}
+
+function generateDatabase(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      await runProcess("pnpm", ["db:generate"], {
+        onStdout: tmpLog.message,
+        onStderr: tmpLog.message,
+        cwd: args.path,
+      });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: generate database schema" });
+      return { success: true, message: `Database generated successfully` };
+    } catch (err) {
+      return { success: false, message: `Failed to generate database: ${err}` };
     }
   };
 }
