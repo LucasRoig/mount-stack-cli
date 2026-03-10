@@ -155,6 +155,15 @@ function initTurboRepo(args: { path: string; appName: string; context: Context }
         rootPath: args.path,
         appName: args.appName,
       });
+      await updatePackage(resolve(args.path, "package.json"), (pkg) => {
+        pkg.volta = pkg.volta || {};
+        pkg.volta.node = Versions.node;
+
+        pkg.engines = pkg.engines || {};
+        pkg.engines.node = ">=22";
+
+        pkg.packageManager = `pnpm@${Versions.pnpm}`;
+      });
       return { success: true, message: "Turbo repo initialized" };
     } catch (err) {
       return { success: false, message: `Turbo repo initialization failed: ${err}` };
