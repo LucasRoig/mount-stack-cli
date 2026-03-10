@@ -5,6 +5,7 @@ import { cancel, intro, log, outro, text } from "@clack/prompts";
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
 import { TEMPLATE_ROOT } from "./consts";
+import { Git } from "./helpers/git";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
@@ -114,6 +115,11 @@ async function main() {
     task: addOrpcApiPackage({ path: projectPath, context }),
   });
 
+  setupTasks.push({
+    title: "Installing dependencies...",
+    task: installDependencies({ path: projectPath }),
+  });
+
   try {
     await tasksWithLogs(setupTasks);
   } catch (err) {
@@ -168,6 +174,7 @@ function deleteTurboExempleAppsAndPackages(args: { path: string }): TaskWithLogD
       await fs.rm(appsWebPath, { recursive: true, force: true });
       await fs.rm(packagesUiPath, { recursive: true, force: true });
       await fs.rm(packagesEslintConfigPath, { recursive: true, force: true });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: delete Turbo example apps and packages" });
       return { success: true, message: "Turbo example apps and packages deleted" };
     } catch (err) {
       return { success: false, message: `Failed to delete Turbo example apps: ${err}` };
@@ -188,6 +195,7 @@ function removeEslintAndPrettier(args: { path: string }): TaskWithLogDefinition[
       await updateJsonFile(turboJsonPath, (json) => {
         delete json.tasks.lint;
       });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: remove ESLint and Prettier" });
       return { success: true, message: "ESLint and Prettier removed" };
     } catch (err) {
       return { success: false, message: `Failed to remove ESLint and Prettier: ${err}` };
@@ -203,6 +211,7 @@ function setTypescriptVersion(args: { path: string }): TaskWithLogDefinition["ta
         pkg.devDependencies = pkg.devDependencies || {};
         pkg.devDependencies.typescript = Versions.typescript;
       });
+      await Git.commitAllFiles({ cwd: args.path, message: `chore: set TypeScript version to ${Versions.typescript}` });
       return { success: true, message: `TypeScript version set to ${Versions.typescript}` };
     } catch (err) {
       return { success: false, message: `Failed to set TypeScript version: ${err}` };
@@ -217,6 +226,7 @@ function copyTypescriptConfigPackage(args: { path: string }): TaskWithLogDefinit
       const destDir = resolve(args.path, "packages", "typescript-config");
       await fs.rm(destDir, { recursive: true, force: true });
       await fs.cp(templateDir, destDir, { recursive: true });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: initialize TypeScript config package" });
       return { success: true, message: "TypeScript config package initialized" };
     } catch (err) {
       return { success: false, message: `TypeScript config package initialization failed: ${err}` };
@@ -230,6 +240,7 @@ function copyEditorConfigFile(args: { path: string }): TaskWithLogDefinition["ta
       const templateFile = resolve(TEMPLATE_ROOT, "editorconfig", ".editorconfig");
       const destFile = resolve(args.path, ".editorconfig");
       await fs.copyFile(templateFile, destFile);
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: copy .editorconfig file" });
       return { success: true, message: ".editorconfig file copied" };
     } catch (err) {
       return { success: false, message: `Failed to copy .editorconfig file: ${err}` };
@@ -246,6 +257,7 @@ function copyVsCodeSettingsFile(args: { path: string }): TaskWithLogDefinition["
         await fs.mkdir(destDir, { recursive: true });
       });
       await fs.cp(template, destDir, { recursive: true });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: copy VSCode settings file" });
       return { success: true, message: "VSCode settings file copied" };
     } catch (err) {
       return { success: false, message: `Failed to copy VSCode settings file: ${err}` };
@@ -259,6 +271,7 @@ function copyDockerIgnoreFile(args: { path: string }): TaskWithLogDefinition["ta
       const templateFile = resolve(TEMPLATE_ROOT, "docker", ".dockerignore");
       const destFile = resolve(args.path, ".dockerignore");
       await fs.copyFile(templateFile, destFile);
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: copy .dockerignore file" });
       return { success: true, message: ".dockerignore file copied" };
     } catch (err) {
       return { success: false, message: `Failed to copy .dockerignore file: ${err}` };
@@ -273,15 +286,16 @@ function installBiome(args: { path: string }): TaskWithLogDefinition["task"] {
       const destBiomeConfigPath = resolve(args.path, "biome.json");
       await fs.copyFile(biomeConfigTemplatePath, destBiomeConfigPath);
       await updateJsonFile(destBiomeConfigPath, (config) => {
-        config.$schema = `https://biomejs.dev/schemas/${Versions.biome}/schema.json`;
+        config.$schema = `https://biomejs.dev/schemas/${Versions["@biomejs/biome"]}/schema.json`;
       });
       await updatePackage(resolve(args.path, "package.json"), (pkg) => {
         pkg.devDependencies = pkg.devDependencies || {};
-        pkg.devDependencies.biome = Versions.biome;
+        pkg.devDependencies["@biomejs/biome"] = Versions["@biomejs/biome"];
         pkg.scripts = pkg.scripts || {};
         pkg.scripts.lint = "biome ci";
         pkg.scripts.fix = "biome check --write";
       });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: install Biome" });
       return { success: true, message: "Biome installed" };
     } catch (err) {
       return { success: false, message: `Failed to install Biome: ${err}` };
@@ -309,7 +323,7 @@ function createNextApp(args: { path: string; name: string; context: Context }): 
       await nextApp.addI18n();
       await nextApp.addLogger();
       await nextApp.addEnvFileManagement();
-
+      await Git.commitAllFiles({ cwd: args.path, message: `chore: create Next.js app ${args.name}` });
       return { success: true, message: `Next.js app ${args.name} created` };
     } catch (err) {
       return { success: false, message: `Failed to create ${args.name} Next.js app: ${err}` };
@@ -327,6 +341,7 @@ function addDatabasePackage(args: { path: string; context: Context }): TaskWithL
         monoRepoInstaller: args.context.monoRepoInstaller,
       });
 
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: create database package" });
       return { success: true, message: `Database package created` };
     } catch (err) {
       return { success: false, message: `Failed to create database package: ${err}` };
@@ -347,10 +362,26 @@ function addOrpcApiPackage(args: { path: string; context: Context }): TaskWithLo
         monoRepoInstaller: args.context.monoRepoInstaller,
         nextAppInstaller: args.context.nextAppInstaller,
       });
-
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: create ORPC API package" });
       return { success: true, message: `ORPC API package created` };
     } catch (err) {
       return { success: false, message: `Failed to create ORPC API package: ${err}` };
+    }
+  };
+}
+
+function installDependencies(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      await runProcess("pnpm", ["install"], {
+        onStdout: tmpLog.message,
+        onStderr: tmpLog.message,
+        cwd: args.path,
+      });
+      await Git.commitAllFiles({ cwd: args.path, message: "chore: install dependencies" });
+      return { success: true, message: `Dependencies installed` };
+    } catch (err) {
+      return { success: false, message: `Failed to install dependencies: ${err}` };
     }
   };
 }

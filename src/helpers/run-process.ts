@@ -1,9 +1,13 @@
+import { resolve as resolvePath } from "node:path";
 import { x } from "tinyexec";
-
 export function runProcess(
   command: string,
   args: string[],
-  { onStdout, onStderr }: { onStdout?: (msg: string) => void; onStderr?: (msg: string) => void } = {},
+  {
+    onStdout,
+    onStderr,
+    cwd,
+  }: { onStdout?: (msg: string) => void; onStderr?: (msg: string) => void; cwd?: string } = {},
 ) {
   return new Promise<void>((resolve, reject) => {
     try {
@@ -11,6 +15,7 @@ export function runProcess(
         throwOnError: true,
         nodeOptions: {
           stdio: "pipe",
+          cwd: resolvePath(cwd || process.cwd()),
         },
       });
       proc.process?.once("exit", (code) => (code === 0 ? resolve() : reject(code)));
