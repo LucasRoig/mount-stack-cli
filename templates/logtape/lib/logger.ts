@@ -2,6 +2,9 @@ import { configure, getConsoleSink } from "@logtape/logtape";
 import { getPrettyFormatter } from "@logtape/pretty";
 
 const sink = process.env.NODE_ENV === "development" ? "prettyConsole" : "console";
+const loggers = [
+  { category: ["next"], sinks: [sink], lowestLevel: "debug" },
+];
 await configure({
   sinks: {
     prettyConsole: getConsoleSink({
@@ -17,8 +20,6 @@ await configure({
     }),
     console: getConsoleSink(),
   },
-  loggers: [
-    { category: ["next"], sinks: [sink], lowestLevel: "debug" },
-  ],
+  loggers,
   contextLocalStorage: new AsyncLocalStorage(),
 });

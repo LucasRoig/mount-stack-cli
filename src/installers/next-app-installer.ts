@@ -295,6 +295,15 @@ export class NextAppInstaller {
     this.isLoggerInstalled = true;
   }
 
+  public async addLoggerDeclaration(category: string[]) {
+    const loggerFile = await getSourceFile(resolve(this.libPath, "logger.ts"));
+    loggerFile.getVariableDeclarationOrThrow("loggers")
+      .getChildAtIndexIfKindOrThrow(2, ts.SyntaxKind.ArrayLiteralExpression)
+      .addElement(`{ category: ["${category.join('","')}"], sinks: [sink], lowestLevel: "debug" }`);
+    loggerFile.formatText();
+    await loggerFile.save();
+  }
+
   public async addEnvFileManagement() {
     if (this.isEnvFileManagementInstalled) {
       throw new Error("Env file management is already installed");

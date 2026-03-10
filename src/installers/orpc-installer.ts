@@ -18,7 +18,7 @@ export class OrpcInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: OrpcInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({
@@ -46,5 +46,7 @@ export class OrpcInstaller {
 
     const nextIntegrationTemplateDir = path.resolve(TEMPLATE_ROOT, "orpc", "integration-next");
     await fs.cp(nextIntegrationTemplateDir, args.nextAppInstaller.srcPath, { recursive: true });
+
+    await args.nextAppInstaller.addLoggerDeclaration(["api"]);
   }
 }
