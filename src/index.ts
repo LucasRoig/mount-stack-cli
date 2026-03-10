@@ -120,6 +120,11 @@ async function main() {
     task: installDependencies({ path: projectPath }),
   });
 
+  setupTasks.push({
+    title: "Running pnpm fix...",
+    task: runPnpmFix({ path: projectPath }),
+  });
+
   try {
     await tasksWithLogs(setupTasks);
   } catch (err) {
@@ -391,6 +396,22 @@ function installDependencies(args: { path: string }): TaskWithLogDefinition["tas
       return { success: true, message: `Dependencies installed` };
     } catch (err) {
       return { success: false, message: `Failed to install dependencies: ${err}` };
+    }
+  };
+}
+
+function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      await runProcess("pnpm", ["fix"], {
+        onStdout: tmpLog.message,
+        onStderr: tmpLog.message,
+        cwd: args.path,
+      });
+      await Git.commitAllFiles({ cwd: args.path, message: "style: lint" });
+      return { success: true, message: `pnpm fix ran successfully` };
+    } catch (err) {
+      return { success: false, message: `Failed to run pnpm fix: ${err}` };
     }
   };
 }

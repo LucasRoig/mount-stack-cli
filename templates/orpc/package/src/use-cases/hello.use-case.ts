@@ -1,4 +1,4 @@
-import { o } from "../orpc ";
+import { o } from "../orpc";
 import { ok } from "neverthrow";
 import z from "zod";
 import { getLogger } from "@logtape/logtape";
@@ -19,7 +19,7 @@ export const HelloProcedure = o
       status: 500,
     },
   })
-  .handler(async ({ input, context: _context, errors: _errors }) => {
+  .handler(({ input, context: _context, errors: _errors }) => {
     const uc = new HelloUseCase();
     const result = uc.execute(input).orTee((e) => logger.error(e));
     return ResultUtils.unwrapOrThrow(result);
