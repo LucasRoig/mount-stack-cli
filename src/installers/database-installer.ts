@@ -20,7 +20,7 @@ export class DatabaseInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: DatabaseInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({
@@ -64,7 +64,7 @@ export class DatabaseInstaller {
     await dockerComposeInstaller.addService({
       serviceName: "database",
       containerName: `${args.monoRepoInstaller.appName}-database`,
-      image: "postgres:18",
+      image: Versions["postgres-docker-image"],
       ports: ["5432:5432"],
       environment: {
         POSTGRES_USER: "postgres",
