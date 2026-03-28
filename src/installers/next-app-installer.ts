@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { updatePackage } from "pkg-types";
 import { ts, VariableDeclarationKind } from "ts-morph";
+import { match } from "ts-pattern";
 import { TEMPLATE_ROOT } from "../consts";
 import { NextInstrumentationFile } from "../helpers/next-instrumentation-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
@@ -365,5 +366,47 @@ export class NextAppInstaller {
     await layoutFile.save();
 
     this.isEnvFileManagementInstalled = true;
+  }
+
+  public async addEnvVariable(name: string, kind: "SERVER" | "CLIENT" | "SECRET", defaultValue?: string) {
+    //1 - add to .env.local.sample
+    const envVariableLine = `${name}=${defaultValue || ""}\n`;
+    await fs.appendFile(this.envSampleFilePath, envVariableLine);
+    //2 - add to .env.local
+    await fs.appendFile(this.envLocalFilePath, envVariableLine);
+    //3 - add to env.ts zod schema
+    const envTsFile = await getSourceFile(this.envTsFilePath);
+    envTsFile
+      .getVariableDeclarationOrThrow("envSchema")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.CallExpression)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+      .addPropertyAssignment({
+        name: name,
+        initializer: "z.string().min(1)",
+      });
+
+    //4 - add to mapEnv function in env.ts
+    const mapKey = match(kind)
+      .with("SERVER", () => "server")
+      .with("CLIENT", () => "client")
+      .with("SECRET", () => "secrets")
+      .exhaustive();
+    const mapEnvPropertyAssignment = envTsFile
+      .getFunctionOrThrow("mapEnv")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+      .getChildrenOfKind(ts.SyntaxKind.PropertyAssignment)
+      .find((pa) => pa.getName() === mapKey);
+    if (!mapEnvPropertyAssignment) {
+      throw new Error(`Could not find property assignment with name ${mapKey} in mapEnv function`);
+    }
+    mapEnvPropertyAssignment.getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression).addPropertyAssignment({
+      name,
+      initializer: `env.${name}`,
+    });
+
+    envTsFile.formatText();
+    await envTsFile.save();
   }
 }
