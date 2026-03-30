@@ -1,4 +1,4 @@
-import { createOrpcHandleRequest } from "@/@lib/orpc/orpc-handler";
+import { createOrpcHandleRequest } from "@/lib/orpc/orpc-handler";
 
 const handleRequest = createOrpcHandleRequest("/rpc");
 
