@@ -9,6 +9,7 @@ import { Git } from "./helpers/git";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
+import { BetterAuthInstaller } from "./installers/better-auth-installer";
 import { DatabaseInstaller } from "./installers/database-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
@@ -22,12 +23,12 @@ type Context = {
   nextAppInstaller: NextAppInstaller | undefined;
   databaseInstaller: DatabaseInstaller | undefined;
   betterAuthConfig:
-    | {
-        enabled: true;
-        providers: ("email" | "OIDC" | "SAML")[];
-        useDatabase: boolean;
-      }
-    | undefined;
+  | {
+    enabled: true;
+    providers: ("email" | "OIDC" | "SAML")[];
+    useDatabase: boolean;
+  }
+  | undefined;
 };
 
 async function main() {
@@ -503,8 +504,9 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
       if (!args.context.nextAppInstaller) {
         throw new Error("NextAppInstaller not initialized");
       }
-      await args.context.nextAppInstaller.addEnvVariable("BETTER_AUTH_URL", "SERVER", "http://localhost:3000");
-      // await args.context.nextAppInstaller.addBetterAuth(args.context.betterAuthConfig!);
+      await BetterAuthInstaller.create({
+        nextAppInstaller: args.context.nextAppInstaller,
+      });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
           { cwd: args.path, message: "chore: setup BetterAuth authentication" },
