@@ -324,7 +324,7 @@ export class NextAppInstaller {
     loggerFile
       .getVariableDeclarationOrThrow("loggers")
       .getChildAtIndexIfKindOrThrow(2, ts.SyntaxKind.ArrayLiteralExpression)
-      .addElement(`{ category: ["${category.join('","')}"], sinks: [sink], lowestLevel: "debug" }`);
+      .addElement(`{ category: ["${category.join('","')}"], sinks: [sink], lowestLevel: "debug" as const }`);
     loggerFile.formatText();
     await loggerFile.save();
   }

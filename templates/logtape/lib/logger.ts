@@ -3,7 +3,7 @@ import { getPrettyFormatter } from "@logtape/pretty";
 
 const sink = process.env.NODE_ENV === "development" ? "prettyConsole" : "console";
 const loggers = [
-  { category: ["next"], sinks: [sink], lowestLevel: "debug" },
+  { category: ["next"], sinks: [sink], lowestLevel: "debug" as const },
 ];
 await configure({
   sinks: {
