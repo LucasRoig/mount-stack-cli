@@ -23,6 +23,7 @@ type Context = {
   monoRepoInstaller: MonoRepoInstaller | undefined;
   nextAppInstaller: NextAppInstaller | undefined;
   databaseInstaller: DatabaseInstaller | undefined;
+  tsUtilsInstaller: TsUtilsInstaller | undefined;
   betterAuthConfig:
     | {
         enabled: true;
@@ -65,6 +66,7 @@ async function main() {
     nextAppInstaller: undefined,
     databaseInstaller: undefined,
     betterAuthConfig: undefined,
+    tsUtilsInstaller: undefined,
   };
 
   const setupBetterAuth = await confirm({
@@ -460,8 +462,16 @@ function addDatabasePackage(args: { path: string; context: Context }): TaskWithL
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
+      if (!args.context.nextAppInstaller) {
+        throw new Error("NextAppInstaller not initialized");
+      }
+      if (!args.context.tsUtilsInstaller) {
+        throw new Error("TsUtilsInstaller not initialized");
+      }
       const databaseInstaller = await DatabaseInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
+        nextAppInstaller: args.context.nextAppInstaller,
+        tsUtilsInstaller: args.context.tsUtilsInstaller,
       });
       args.context.databaseInstaller = databaseInstaller;
 
@@ -595,7 +605,7 @@ function addTsUtilsPackage(args: { path: string; context: Context }): TaskWithLo
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
-      await TsUtilsInstaller.create({
+      args.context.tsUtilsInstaller = await TsUtilsInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
       });
       if (!SKIP_COMMIT) {

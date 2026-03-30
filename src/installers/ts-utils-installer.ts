@@ -10,6 +10,15 @@ type TsUtilsInstallerOptions = {
 };
 
 export class TsUtilsInstaller {
+  private packageInstaller: TurboPackageInstaller | undefined;
+
+  public get packageName() {
+    if (!this.packageInstaller) {
+      throw new Error("TsUtilsInstaller not initialized");
+    }
+    return this.packageInstaller.packageName;
+  }
+
   public static async create(args: TsUtilsInstallerOptions): Promise<TsUtilsInstaller> {
     const installer = new TsUtilsInstaller();
     await installer.init(args);
@@ -19,18 +28,18 @@ export class TsUtilsInstaller {
   private constructor() {}
 
   private async init(args: TsUtilsInstallerOptions) {
-    const packageInstaller = await TurboPackageInstaller.create({
+    this.packageInstaller = await TurboPackageInstaller.create({
       name: "ts-utils",
       subPath: "ts-utils",
       packageKind: "PACKAGE_WITH_BUILD",
       monoRepoInstaller: args.monoRepoInstaller,
     });
 
-    await packageInstaller.addDevDependencyToPackageJson("typescript", Versions.typescript);
-    await packageInstaller.addDevDependencyToPackageJson("vitest", Versions.vitest);
-    await packageInstaller.addScriptToPackageJson("test", "vitest run");
+    await this.packageInstaller.addDevDependencyToPackageJson("typescript", Versions.typescript);
+    await this.packageInstaller.addDevDependencyToPackageJson("vitest", Versions.vitest);
+    await this.packageInstaller.addScriptToPackageJson("test", "vitest run");
 
     const packageTemplateDir = path.resolve(TEMPLATE_ROOT, "ts-utils");
-    await fs.cp(packageTemplateDir, packageInstaller.path, { recursive: true });
+    await fs.cp(packageTemplateDir, this.packageInstaller.path, { recursive: true });
   }
 }

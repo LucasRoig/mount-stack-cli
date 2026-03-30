@@ -16,6 +16,7 @@ export class TurboPackageInstaller {
   public readonly path: string;
   public readonly packageJsonPath: string;
   public readonly relativePathFromMonorepoRoot: string;
+  public readonly packageName: string;
 
   public static async create(args: TurboPackageInstallerCreateArgs) {
     const installer = new TurboPackageInstaller(args);
@@ -27,6 +28,7 @@ export class TurboPackageInstaller {
     this.path = resolve(args.monoRepoInstaller.packagesPath, args.subPath);
     this.packageJsonPath = resolve(this.path, "package.json");
     this.relativePathFromMonorepoRoot = relative(args.monoRepoInstaller.rootPath, this.path);
+    this.packageName = `@repo/${args.name}`;
   }
 
   private async init(args: TurboPackageInstallerCreateArgs) {
@@ -38,7 +40,7 @@ export class TurboPackageInstaller {
       .exhaustive();
 
     await updatePackage(this.packageJsonPath, (pkg) => {
-      pkg.name = `@repo/${args.name}`;
+      pkg.name = this.packageName;
     });
   }
 

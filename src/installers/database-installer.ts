@@ -6,10 +6,14 @@ import { replaceTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
 import { DockerComposeInstaller } from "./docker-compose-installer";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
+import { EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
+import type { TsUtilsInstaller } from "./ts-utils-installer";
 import { TurboPackageInstaller } from "./turbo-package-installer";
 
 type DatabaseInstallerCreateArgs = {
   monoRepoInstaller: MonoRepoInstaller;
+  nextAppInstaller: NextAppInstaller;
+  tsUtilsInstaller: TsUtilsInstaller;
   rootScriptPrefix?: string;
 };
 
@@ -41,7 +45,7 @@ export class DatabaseInstaller {
 
     await packageInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
 
-    const templateDir = path.resolve(TEMPLATE_ROOT, "database", "prisma-drizzle");
+    const templateDir = path.resolve(TEMPLATE_ROOT, "database", "prisma-drizzle", "package");
     await fs.cp(templateDir, packageInstaller.path, { recursive: true });
 
     const envSamplePath = path.resolve(packageInstaller.path, ".env.sample");
@@ -62,16 +66,41 @@ export class DatabaseInstaller {
     const dockerComposeInstaller = await DockerComposeInstaller.create({
       path: path.resolve(args.monoRepoInstaller.rootPath, "docker-compose.yml"),
     });
+    const dockerPostgresUser = "postgres";
+    const dockerPostgresPassword = "postgres";
+    const dockerPostgresDatabase = args.monoRepoInstaller.appName;
+    const dockerPostgresPort = "5432";
     await dockerComposeInstaller.addService({
       serviceName: "database",
       containerName: `${args.monoRepoInstaller.appName}-database`,
       image: Versions["postgres-docker-image"],
-      ports: ["5432:5432"],
+      ports: [`${dockerPostgresPort}:5432`],
       environment: {
-        POSTGRES_USER: "postgres",
-        POSTGRES_PASSWORD: "postgres",
-        POSTGRES_DB: args.monoRepoInstaller.appName,
+        POSTGRES_USER: dockerPostgresUser,
+        POSTGRES_PASSWORD: dockerPostgresPassword,
+        POSTGRES_DB: dockerPostgresDatabase,
       },
     });
+
+    //Add in the next application
+    const dbClientTemplatePath = path.resolve(
+      TEMPLATE_ROOT,
+      "database",
+      "prisma-drizzle",
+      "next-integration",
+      "database.ts",
+    );
+    const dbClientDestinationPath = path.resolve(args.nextAppInstaller.srcPath, "lib", "database.ts");
+    await fs.copyFile(dbClientTemplatePath, dbClientDestinationPath);
+    await args.nextAppInstaller.addDependencyToPackageJson(packageInstaller.packageName, "workspace:*");
+    await args.nextAppInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+    await args.nextAppInstaller.addDependencyToPackageJson("pg", Versions.pg);
+    await args.nextAppInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
+    await args.nextAppInstaller.addDependencyToPackageJson(args.tsUtilsInstaller.packageName, "workspace:*");
+    await args.nextAppInstaller.addEnvVariable("PG_USER", EnvVisibilities.SERVER, dockerPostgresUser);
+    await args.nextAppInstaller.addEnvVariable("PG_PASSWORD", EnvVisibilities.SECRET, dockerPostgresPassword);
+    await args.nextAppInstaller.addEnvVariable("PG_DATABASE", EnvVisibilities.SERVER, dockerPostgresDatabase);
+    await args.nextAppInstaller.addEnvVariable("PG_HOST", EnvVisibilities.SERVER, "localhost");
+    await args.nextAppInstaller.addEnvVariable("PG_PORT", EnvVisibilities.SERVER, dockerPostgresPort);
   }
 }
