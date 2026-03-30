@@ -59,4 +59,13 @@ export class TurboPackageInstaller {
       pkg.devDependencies[dependencyName] = version;
     });
   }
+
+  public async addScriptToPackageJson(scriptName: string, scriptCommand: string) {
+    await updatePackage(this.packageJsonPath, (pkg) => {
+      if (!pkg.scripts) {
+        pkg.scripts = {};
+      }
+      pkg.scripts[scriptName] = scriptCommand;
+    });
+  }
 }

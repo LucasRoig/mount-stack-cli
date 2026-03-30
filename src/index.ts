@@ -14,6 +14,7 @@ import { DatabaseInstaller } from "./installers/database-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import { OrpcInstaller } from "./installers/orpc-installer";
+import { TsUtilsInstaller } from "./installers/ts-utils-installer";
 import Versions from "./versions.json";
 
 const SKIP_COMMIT = true;
@@ -144,6 +145,11 @@ async function main() {
   setupTasks.push({
     title: "Installing Biome...",
     task: installBiome({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Adding ts-utils package...",
+    task: addTsUtilsPackage({ path: projectPath, context }),
   });
 
   setupTasks.push({
@@ -579,6 +585,28 @@ function generateDatabase(args: { path: string }): TaskWithLogDefinition["task"]
       return { success: true, message: `Database generated successfully` };
     } catch (err) {
       return { success: false, message: `Failed to generate database: ${err}` };
+    }
+  };
+}
+
+function addTsUtilsPackage(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      await TsUtilsInstaller.create({
+        monoRepoInstaller: args.context.monoRepoInstaller,
+      });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: create ts-utils package" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
+      return { success: true, message: `ts-utils package created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create ts-utils package: ${err}` };
     }
   };
 }
