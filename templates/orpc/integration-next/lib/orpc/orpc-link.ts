@@ -4,8 +4,10 @@ import "server-only";
 import { createSafeClient } from "@orpc/client";
 import { getORPCContext } from "./orpc-context";
 
-const client = createRouterClient(appRouter, {
-  context: getORPCContext(),
-});
-
-export const orpcServerSideClient = createSafeClient(client);
+export async function getServerSideORPCClient() {
+  const context = await getORPCContext();
+  const client = createRouterClient(appRouter, {
+    context,
+  });
+  return createSafeClient(client);
+}

@@ -9,9 +9,10 @@ const orpcHandler = new RPCHandler(appRouter, {
 });
 
 export const createOrpcHandleRequest = (prefix: `/${string}`) => async (request: Request) => {
+  const context = await getORPCContext();
   const { response } = await orpcHandler.handle(request, {
     prefix,
-    context: getORPCContext(),
+    context,
   });
   return response ?? new Response("Not found", { status: 404 });
 };
