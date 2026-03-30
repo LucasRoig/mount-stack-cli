@@ -12,14 +12,12 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
     await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_SECRET", "SECRET", crypto.randomBytes(32).toString("hex"));
     await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_URL", "SERVER", "http://localhost:3000");
     await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_SESSION_DURATION_IN_SECONDS", "SERVER", "3600");
-
-
   }
 }

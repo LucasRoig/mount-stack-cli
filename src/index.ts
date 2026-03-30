@@ -23,12 +23,12 @@ type Context = {
   nextAppInstaller: NextAppInstaller | undefined;
   databaseInstaller: DatabaseInstaller | undefined;
   betterAuthConfig:
-  | {
-    enabled: true;
-    providers: ("email" | "OIDC" | "SAML")[];
-    useDatabase: boolean;
-  }
-  | undefined;
+    | {
+        enabled: true;
+        providers: ("email" | "OIDC" | "SAML")[];
+        useDatabase: boolean;
+      }
+    | undefined;
 };
 
 async function main() {
@@ -528,7 +528,12 @@ function installDependencies(args: { path: string }): TaskWithLogDefinition["tas
         onStderr: tmpLog.message,
         cwd: args.path,
       });
-      await Git.commitAllFiles({ cwd: args.path, message: "chore: install dependencies" });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: install dependencies" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
       return { success: true, message: `Dependencies installed` };
     } catch (err) {
       return { success: false, message: `Failed to install dependencies: ${err}` };
@@ -544,7 +549,12 @@ function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
         onStderr: tmpLog.message,
         cwd: args.path,
       });
-      await Git.commitAllFiles({ cwd: args.path, message: "style: lint" });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "style: lint" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
       return { success: true, message: `pnpm fix ran successfully` };
     } catch (err) {
       return { success: false, message: `Failed to run pnpm fix: ${err}` };
@@ -560,7 +570,12 @@ function generateDatabase(args: { path: string }): TaskWithLogDefinition["task"]
         onStderr: tmpLog.message,
         cwd: args.path,
       });
-      await Git.commitAllFiles({ cwd: args.path, message: "chore: generate database schema" });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: generate database schema" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
       return { success: true, message: `Database generated successfully` };
     } catch (err) {
       return { success: false, message: `Failed to generate database: ${err}` };
