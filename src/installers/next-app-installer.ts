@@ -20,6 +20,23 @@ type NextAppInstallerArgs = {
   monorepo: MonoRepoInstaller;
 };
 
+export const EnvVisibilities = {
+  SERVER: "SERVER" as const,
+  CLIENT: "CLIENT" as const,
+  SECRET: "SECRET" as const,
+};
+
+type EnvVisibility = (typeof EnvVisibilities)[keyof typeof EnvVisibilities];
+
+export const EnvSchemas = {
+  String: "z.string().min(1)",
+  PositiveInt: "z.coerce.number().int().positive()",
+  Boolean: "_BooleanStringZod",
+  StringList: "CommaSeparatedListZod",
+};
+
+type EnvSchema = (typeof EnvSchemas)[keyof typeof EnvSchemas];
+
 export class NextAppInstaller {
   public readonly nextAppRootPath: string;
   public readonly appName: string;
@@ -368,7 +385,12 @@ export class NextAppInstaller {
     this.isEnvFileManagementInstalled = true;
   }
 
-  public async addEnvVariable(name: string, kind: "SERVER" | "CLIENT" | "SECRET", defaultValue?: string) {
+  public async addEnvVariable(
+    name: string,
+    kind: EnvVisibility,
+    defaultValue?: string,
+    { schema }: { schema: EnvSchema } = { schema: EnvSchemas.String },
+  ) {
     //1 - add to .env.local.sample
     const envVariableLine = `${name}=${defaultValue || ""}\n`;
     await fs.appendFile(this.envSampleFilePath, envVariableLine);
@@ -382,14 +404,14 @@ export class NextAppInstaller {
       .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
       .addPropertyAssignment({
         name: name,
-        initializer: "z.string().min(1)",
+        initializer: schema,
       });
 
     //4 - add to mapEnv function in env.ts
     const mapKey = match(kind)
-      .with("SERVER", () => "server")
-      .with("CLIENT", () => "client")
-      .with("SECRET", () => "secrets")
+      .with(EnvVisibilities.SERVER, () => "server")
+      .with(EnvVisibilities.CLIENT, () => "client")
+      .with(EnvVisibilities.SECRET, () => "secrets")
       .exhaustive();
     const mapEnvPropertyAssignment = envTsFile
       .getFunctionOrThrow("mapEnv")
