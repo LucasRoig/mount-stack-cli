@@ -7,11 +7,13 @@ import { getSourceFile } from "../helpers/ts-files";
 import Versions from "../versions.json";
 import type { DatabaseInstaller } from "./database-installer";
 import { EnvSchemas, EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
+import type { OrpcInstaller } from "./orpc-installer";
 
 export type BetterAuthProviders = "email" | "oidc" | "saml";
 type BetterAuthInstallerCreateArgs = {
   databaseInstaller: DatabaseInstaller;
   nextAppInstaller: NextAppInstaller;
+  orpcInstaller: OrpcInstaller;
   providers: BetterAuthProviders[];
   useDatabase: boolean;
 };
@@ -404,6 +406,30 @@ export class BetterAuthInstaller {
         }),
       `);
     }
+
+    await args.orpcInstaller.setupAuthProcedure();
+    const orpcContextFile = await args.orpcInstaller.getContextProviderFile();
+    orpcContextFile.insertImportDeclarations(1, [
+      { namedImports: ["auth"], moduleSpecifier: "../auth/auth" },
+      { namedImports: ["headers"], moduleSpecifier: "next/headers" },
+    ]);
+    const getOrpcContextFunctionBlock = orpcContextFile
+      .getFunctionOrThrow("getORPCContext")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block);
+    getOrpcContextFunctionBlock.insertStatements(
+      0,
+      `
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      });
+    `,
+    );
+    getOrpcContextFunctionBlock
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+      .addProperty("session: session ?? undefined");
+    orpcContextFile.formatText();
+    await orpcContextFile.save();
 
     clientFile.formatText();
     await clientFile.save();

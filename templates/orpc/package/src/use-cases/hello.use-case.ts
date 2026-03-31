@@ -1,4 +1,4 @@
-import { o } from "../orpc";
+import { procedures } from "../orpc";
 import { ok } from "neverthrow";
 import z from "zod";
 import { getLogger } from "@logtape/logtape";
@@ -11,7 +11,7 @@ const inputRequestSchema = z.object({
 });
 type InputRequest = z.infer<typeof inputRequestSchema>;
 
-export const HelloProcedure = o
+export const HelloProcedure = procedures.public
   .input(inputRequestSchema)
   .errors({
     EXEMPLE_ERROR: {
