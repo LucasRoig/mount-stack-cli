@@ -26,12 +26,12 @@ type Context = {
   tsUtilsInstaller: TsUtilsInstaller | undefined;
   orpcInstaller: OrpcInstaller | undefined;
   betterAuthConfig:
-    | {
-        enabled: true;
-        providers: BetterAuthProviders[];
-        useDatabase: boolean;
-      }
-    | undefined;
+  | {
+    enabled: true;
+    providers: BetterAuthProviders[];
+    useDatabase: boolean;
+  }
+  | undefined;
 };
 
 async function main() {
@@ -529,7 +529,7 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
         throw new Error("DatabaseInstaller not initialized");
       }
       if (!args.context.orpcInstaller) {
-        throw new Error("TsUtilsInstaller not initialized");
+        throw new Error("OrpcInstaller not initialized");
       }
       await BetterAuthInstaller.create({
         nextAppInstaller: args.context.nextAppInstaller,
@@ -537,6 +537,7 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
         useDatabase: args.context.betterAuthConfig.useDatabase,
         databaseInstaller: args.context.databaseInstaller,
         orpcInstaller: args.context.orpcInstaller,
+        monoRepoInstaller: args.context.monoRepoInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(

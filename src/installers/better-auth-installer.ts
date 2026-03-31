@@ -5,7 +5,9 @@ import { ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
 import { getSourceFile } from "../helpers/ts-files";
 import Versions from "../versions.json";
+import { CaslInstaller } from "./casl-installer";
 import type { DatabaseInstaller } from "./database-installer";
+import type { MonoRepoInstaller } from "./mono-repo-installer";
 import { EnvSchemas, EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
 import type { OrpcInstaller } from "./orpc-installer";
 
@@ -14,6 +16,7 @@ type BetterAuthInstallerCreateArgs = {
   databaseInstaller: DatabaseInstaller;
   nextAppInstaller: NextAppInstaller;
   orpcInstaller: OrpcInstaller;
+  monoRepoInstaller: MonoRepoInstaller;
   providers: BetterAuthProviders[];
   useDatabase: boolean;
 };
@@ -24,7 +27,7 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
@@ -196,6 +199,9 @@ export class BetterAuthInstaller {
       }
 
       await prismaSchema.save();
+      await CaslInstaller.create({
+        monoRepoInstaller: args.monoRepoInstaller,
+      });
     }
 
     if (args.providers.includes("email")) {
