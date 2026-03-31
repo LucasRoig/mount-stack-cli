@@ -1,9 +1,17 @@
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { ts, VariableDeclarationKind } from "ts-morph";
+import { TEMPLATE_ROOT } from "../consts";
+import { getSourceFile } from "../helpers/ts-files";
 import Versions from "../versions.json";
 import { EnvSchemas, EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
 
+export type BetterAuthProviders = "email" | "oidc" | "saml";
 type BetterAuthInstallerCreateArgs = {
   nextAppInstaller: NextAppInstaller;
+  providers: BetterAuthProviders[];
+  useDatabase: boolean;
 };
 export class BetterAuthInstaller {
   public static async create(args: BetterAuthInstallerCreateArgs): Promise<BetterAuthInstaller> {
@@ -28,5 +36,268 @@ export class BetterAuthInstaller {
       "3600",
       { schema: EnvSchemas.PositiveInt },
     );
+    const coreSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "core", "src");
+    await fs.cp(coreSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
+
+    const enableSsoPlugin = args.providers.includes("oidc") || args.providers.includes("saml");
+    const clientFile = await getSourceFile(
+      path.resolve(args.nextAppInstaller.srcPath, "lib", "auth", "auth-client.ts"),
+    );
+    const authFile = await getSourceFile(path.resolve(args.nextAppInstaller.srcPath, "lib", "auth", "auth.ts"));
+    const baseAuthConfigDeclaration = authFile
+      .getVariableStatementOrThrow("baseAuthConfig")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.SatisfiesExpression)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
+
+    if (args.useDatabase) {
+      await args.nextAppInstaller.addDependencyToPackageJson("@paralleldrive/cuid2", Versions["@paralleldrive/cuid2"]);
+      authFile.insertImportDeclaration(1, {
+        namedImports: ["drizzleAdapter"],
+        moduleSpecifier: "better-auth/adapters/drizzle",
+      });
+      authFile.insertImportDeclaration(2, {
+        namedImports: ["getDatabaseClient"],
+        moduleSpecifier: "../database",
+      });
+      authFile.insertImportDeclaration(3, {
+        namedImports: ["createId"],
+        moduleSpecifier: "@paralleldrive/cuid2",
+      });
+
+      baseAuthConfigDeclaration.addPropertyAssignments([
+        {
+          name: "database",
+          initializer: `drizzleAdapter(getDatabaseClient(), {
+                          provider: "pg", // or "mysql", "sqlite"
+                          usePlural: true,
+                        })`,
+        },
+        {
+          name: "advanced",
+          initializer: `{
+                          database: {
+                            generateId: () => createId(),
+                          }
+                        }`,
+        },
+      ]);
+    }
+
+    if (args.providers.includes("email")) {
+      await args.nextAppInstaller.addDependencyToPackageJson("@node-rs/argon2", Versions["@node-rs/argon2"]);
+      authFile.insertImportDeclaration(1, {
+        defaultImport: "argon2",
+        moduleSpecifier: "@node-rs/argon2",
+      });
+      baseAuthConfigDeclaration.addPropertyAssignment({
+        name: "emailAndPassword",
+        initializer: `{
+                        enabled: true,
+                        password: {
+                          hash(password) {
+                            return argon2.hash(password);
+                          },
+                          verify({ hash, password }) {
+                            return argon2.verify(hash, password);
+                          },
+                        }
+                      },
+        `,
+      });
+    }
+
+    if (enableSsoPlugin) {
+      const ssoSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "sso", "src");
+      await fs.cp(ssoSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
+
+      await args.nextAppInstaller.addDependencyToPackageJson("@better-auth/sso", Versions["@better-auth/sso"]);
+      clientFile.insertImportDeclaration(1, {
+        namedImports: ["ssoClient"],
+        moduleSpecifier: "@better-auth/sso/client",
+      });
+      const pluginsDeclaration = clientFile
+        .getVariableStatementOrThrow((stmt) => {
+          try {
+            return stmt
+              .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+              .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+              .getFirstChildByKindOrThrow(ts.SyntaxKind.CallExpression)
+              .getFullText()
+              .trim()
+              .startsWith("createAuthClient");
+          } catch {
+            return false;
+          }
+        })
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.CallExpression)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+        .getChildrenOfKind(ts.SyntaxKind.PropertyAssignment)
+        .find((prop) => prop.getName() === "plugins")
+        ?.getFirstChildByKindOrThrow(ts.SyntaxKind.ArrayLiteralExpression);
+      if (!pluginsDeclaration) {
+        throw new Error("Could not find plugins declaration in auth-client.ts");
+      }
+      pluginsDeclaration.addElement("ssoClient()");
+
+      authFile.insertImportDeclaration(1, {
+        namedImports: ["sso"],
+        moduleSpecifier: "@better-auth/sso",
+      });
+      args.nextAppInstaller.addEnvVariable(
+        "BETTER_AUTH_TRUSTED_ORIGINS",
+        EnvVisibilities.SERVER,
+        "http://localhost:3000",
+        { schema: EnvSchemas.StringList },
+      );
+      baseAuthConfigDeclaration.addPropertyAssignment({
+        name: "trustedOrigins",
+        initializer: `getEnv().server.BETTER_AUTH_TRUSTED_ORIGINS`,
+      });
+      const ssoProvidersTypes: string[] = [];
+      if (args.providers.includes("oidc")) {
+        ssoProvidersTypes.push("OIDCProvider");
+      }
+      if (args.providers.includes("saml")) {
+        ssoProvidersTypes.push("SAMLProvider");
+      }
+      authFile.insertVariableStatement(9, {
+        declarationKind: VariableDeclarationKind.Const,
+        declarations: [
+          {
+            name: "SSO_PROVIDERS",
+            type: `(${ssoProvidersTypes.join(" | ")})[]`,
+            initializer: `[]`,
+          },
+        ],
+      });
+      baseAuthConfigDeclaration
+        .getPropertyOrThrow("plugins")
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.ArrayLiteralExpression)
+        .addElement(`
+          sso({
+            defaultSSO: SSO_PROVIDERS.map((provider) => provider.getBetterAuthConfig())
+          })
+        `);
+      authFile.insertImportDeclaration(1, {
+        namedImports: ["createAuthMiddleware"],
+        moduleSpecifier: "better-auth/api",
+      });
+
+      baseAuthConfigDeclaration.addPropertyAssignment({
+        name: "hooks",
+        initializer: `{
+          before: createAuthMiddleware(async (req) => {
+            if (req.path === "/sign-in/sso") {
+              const providerId = req.body.providerId;
+              if (typeof providerId === "string") {
+                const provider = SSO_PROVIDERS.find(p => p.providerId === providerId);
+                if (provider) {
+                  await provider.beforeHook(req);
+                  return;
+                }
+              }
+            }
+          }),
+          after: createAuthMiddleware(async (req) => {
+            if (req.path === "/sign-in/sso") {
+              const providerId = req.body.providerId;
+              if (typeof providerId === "string") {
+                const provider = SSO_PROVIDERS.find(p => p.providerId === providerId);
+                if (provider) {
+                  await provider.afterHook(req);
+                  return;
+                }
+              }
+            }
+          }),
+        }`,
+      });
+    }
+
+    if (args.providers.includes("oidc")) {
+      const oidcSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "oidc", "src");
+      await fs.cp(oidcSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
+
+      authFile.insertImportDeclaration(1, {
+        namedImports: ["OIDCProvider"],
+        moduleSpecifier: "./sso/oidc-provider",
+      });
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_CLIENT_ID", EnvVisibilities.SERVER);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_CLIENT_SECRET", EnvVisibilities.SECRET);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_DISCOVERY_ENDPOINT", EnvVisibilities.SERVER);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_ISSUER", EnvVisibilities.SERVER);
+      const ssoProvidersDeclaration = authFile
+        .getVariableStatementOrThrow("SSO_PROVIDERS")
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.ArrayLiteralExpression);
+      ssoProvidersDeclaration.addElement(`
+        new OIDCProvider({
+          providerId: "local-oidc",
+          oidc: {
+            clientId: getEnv().server.BETTER_AUTH_OIDC_CLIENT_ID,
+            clientSecret: getEnv().secrets.BETTER_AUTH_OIDC_CLIENT_SECRET,
+            discoveryEndpoint: getEnv().server.BETTER_AUTH_OIDC_DISCOVERY_ENDPOINT,
+            issuer: getEnv().server.BETTER_AUTH_OIDC_ISSUER,
+            pkce: false,
+          }
+        })
+      `);
+    }
+
+    if (args.providers.includes("saml")) {
+      await args.nextAppInstaller.addDependencyToPackageJson("samlify", Versions.samlify);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_SAML_ISSUER", EnvVisibilities.SERVER);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_SAML_IDP_SSO_LOGIN_URL", EnvVisibilities.SERVER);
+      await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_SAML_SP_ENTITY_ID", EnvVisibilities.SERVER);
+
+      const samlSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "saml", "src");
+      await fs.cp(samlSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
+      authFile.insertImportDeclaration(1, {
+        defaultImport: "fs",
+        moduleSpecifier: "node:fs",
+      });
+      authFile.insertImportDeclaration(1, {
+        namedImports: ["SAMLProvider"],
+        moduleSpecifier: "./sso/saml-provider",
+      });
+      const ssoProvidersDeclaration = authFile
+        .getVariableStatementOrThrow("SSO_PROVIDERS")
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+        .getFirstChildByKindOrThrow(ts.SyntaxKind.ArrayLiteralExpression);
+      ssoProvidersDeclaration.addElement(`
+        new SAMLProvider({
+          providerId: "local-saml",
+          issuer: getEnv().server.BETTER_AUTH_SAML_ISSUER,
+          ipd: {
+            ssoLoginUrl: getEnv().server.BETTER_AUTH_SAML_IDP_SSO_LOGIN_URL,
+            certificate: fs.readFileSync(\`certificates/idp-public.pem\`).toString(),
+          },
+          sp: {
+            entityID: getEnv().server.BETTER_AUTH_SAML_SP_ENTITY_ID,
+            authnRequestsSigned: {
+              enabled: true,
+              privateKey: fs.readFileSync(\`certificates/sp-private.pem\`).toString(),
+            }
+          },
+          mapping: {
+            id: "nameID",
+            email: "email",
+            name: "displayName",
+          },
+        }),
+      `);
+    }
+
+    clientFile.formatText();
+    await clientFile.save();
+
+    authFile.formatText();
+    await authFile.save();
   }
 }

@@ -27,6 +27,10 @@
   "@types/node": "^25.4.0",
   "postgres-docker-image": "postgres:18",
   "better-auth": "^1.5.5",
+  "@better-auth/sso": "^1.5.5",
+  "@paralleldrive/cuid2": "^3.3.0",
+  "@node-rs/argon2": "^2.0.2",
+  "samlify": "^2.11.0",
   "vitest": "^4.1.2",
   "node": "25.8.0",
   "pnpm": "10.32.0"

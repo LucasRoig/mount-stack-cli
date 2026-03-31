@@ -9,7 +9,7 @@ import { Git } from "./helpers/git";
 import { updateJsonFile } from "./helpers/json-file";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
-import { BetterAuthInstaller } from "./installers/better-auth-installer";
+import { BetterAuthInstaller, type BetterAuthProviders } from "./installers/better-auth-installer";
 import { DatabaseInstaller } from "./installers/database-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
@@ -27,7 +27,7 @@ type Context = {
   betterAuthConfig:
     | {
         enabled: true;
-        providers: ("email" | "OIDC" | "SAML")[];
+        providers: BetterAuthProviders[];
         useDatabase: boolean;
       }
     | undefined;
@@ -82,8 +82,8 @@ async function main() {
 
     let providersOptions = [
       { value: "email" as const, label: "Email/Password (local)" },
-      { value: "OIDC" as const, label: "OIDC" },
-      { value: "SAML" as const, label: "SAML" },
+      { value: "oidc" as const, label: "OIDC" },
+      { value: "saml" as const, label: "SAML" },
     ];
 
     if (!isStoreSessionsInDatabase) {
@@ -93,7 +93,7 @@ async function main() {
     const betterAuthProviders = (await multiselect({
       message: "Which authentication providers do you want to use ?",
       options: providersOptions,
-    })) as ("email" | "OIDC" | "SAML")[];
+    })) as BetterAuthProviders[];
 
     context.betterAuthConfig = {
       enabled: true,
@@ -514,6 +514,9 @@ function addOrpcApiPackage(args: { path: string; context: Context }): TaskWithLo
 function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
+      if (!args.context.betterAuthConfig?.enabled) {
+        throw new Error("BetterAuth not enabled in context");
+      }
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
@@ -522,6 +525,8 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
       }
       await BetterAuthInstaller.create({
         nextAppInstaller: args.context.nextAppInstaller,
+        providers: args.context.betterAuthConfig.providers,
+        useDatabase: args.context.betterAuthConfig.useDatabase,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
