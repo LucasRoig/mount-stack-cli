@@ -1,34 +1,40 @@
 import { expect, test } from "vitest";
 import { PrismaSchemaFile } from "../../src/helpers/prisma-helper";
 
-test("adds 1 + 2 to equal 3", () => {
-  const schema = `
-datasource db{
+const schema = `
+datasource db {
   provider = "postgresql"
 }
 
-generator client{
+generator client {
   provider = "prisma-client-js"
 }
 
-model User{
+model User {
   id Int @id @default(autoincrement())
   name String
 
   @@map("users")
 }
 
-model Post{
+model Post {
   id Int @id @default(autoincrement())
   title String
   content String
 
   @@map("posts")
 }
+
+enum Role {
+  USER
+  ADMIN
+}
 `;
+
+test("it parses a schema correctly", () => {
   const schemaFile = PrismaSchemaFile.fromString(schema);
   expect(schemaFile.schema).toBeDefined();
-  expect(schemaFile.schema.length).toBe(4);
+  expect(schemaFile.schema.length).toBe(5);
   expect(schemaFile.schema[0]).toEqual({
     kind: "datasource",
     name: "db",
@@ -79,4 +85,15 @@ model Post{
       },
     ],
   });
+  expect(schemaFile.schema[4]).toEqual({
+    kind: "enum",
+    name: "Role",
+    content: "USER \n ADMIN",
+  });
+});
+
+test("it stringifies a schema correctly", () => {
+  const schemaFile = PrismaSchemaFile.fromString(schema);
+  const stringified = schemaFile.toString();
+  expect(stringified.trim()).toBe(schema.trim());
 });

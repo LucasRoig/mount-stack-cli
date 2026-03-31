@@ -5,10 +5,12 @@ import { ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
 import { getSourceFile } from "../helpers/ts-files";
 import Versions from "../versions.json";
+import type { DatabaseInstaller } from "./database-installer";
 import { EnvSchemas, EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
 
 export type BetterAuthProviders = "email" | "oidc" | "saml";
 type BetterAuthInstallerCreateArgs = {
+  databaseInstaller: DatabaseInstaller;
   nextAppInstaller: NextAppInstaller;
   providers: BetterAuthProviders[];
   useDatabase: boolean;
@@ -83,6 +85,115 @@ export class BetterAuthInstaller {
                         }`,
         },
       ]);
+
+      const prismaSchema = await args.databaseInstaller.getPrismaSchema();
+      prismaSchema.schema.push({
+        kind: "model",
+        name: "User",
+        content: [
+          { kind: "field", content: "id            String        @id" },
+          { kind: "field", content: "name          String" },
+          { kind: "field", content: "email         String" },
+          { kind: "field", content: 'emailVerified Boolean       @map("email_verified")' },
+          { kind: "field", content: "image         String?" },
+          { kind: "field", content: 'createdAt     DateTime      @map("created_at")' },
+          { kind: "field", content: 'updatedAt     DateTime      @map("updated_at")' },
+          { kind: "field", content: "sessions      Session[]" },
+          { kind: "field", content: "accounts      Account[]" },
+          { kind: "field", content: "role          Role          @default(USER)" },
+          { kind: "modelAttribute", content: '@@map("user")' },
+        ],
+      });
+      prismaSchema.schema.push({
+        kind: "enum",
+        name: "Role",
+        content: `
+          USER
+          ADMIN
+        `,
+      });
+      prismaSchema.schema.push({
+        kind: "model",
+        name: "Session",
+        content: [
+          { kind: "field", content: "id        String   @id" },
+          {
+            kind: "field",
+            content: "user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)",
+          },
+          { kind: "field", content: "userId    String" },
+          { kind: "field", content: "token     String" },
+          { kind: "field", content: 'expiresAt DateTime @map("expires_at")' },
+          { kind: "field", content: 'ipAddress String?  @map("ip_address")' },
+          { kind: "field", content: 'userAgent String?  @map("user_agent")' },
+          { kind: "field", content: 'createdAt DateTime @map("created_at")' },
+          { kind: "field", content: 'updatedAt DateTime @map("updated_at")' },
+          { kind: "modelAttribute", content: '@@map("session")' },
+        ],
+      });
+      prismaSchema.schema.push({
+        kind: "model",
+        name: "Account",
+        content: [
+          { kind: "field", content: "id                    String    @id" },
+          {
+            kind: "field",
+            content: "user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)",
+          },
+          { kind: "field", content: 'userId                String    @map("user_id")' },
+          { kind: "field", content: 'accountId             String    @map("account_id")' },
+          { kind: "field", content: 'providerId            String    @map("provider_id")' },
+          { kind: "field", content: 'accessToken           String?   @map("access_token")' },
+          { kind: "field", content: 'refreshToken          String?   @map("refresh_token")' },
+          { kind: "field", content: 'accessTokenExpiresAt  DateTime? @map("access_token_expires_at")' },
+          { kind: "field", content: 'refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")' },
+          { kind: "field", content: "scope                 String?" },
+          { kind: "field", content: 'idToken               String?   @map("id_token")' },
+          { kind: "field", content: "password              String?" },
+          { kind: "field", content: 'createdAt             DateTime  @map("created_at")' },
+          { kind: "field", content: 'updatedAt             DateTime  @map("updated_at")' },
+          { kind: "modelAttribute", content: '@@map("account")' },
+        ],
+      });
+      prismaSchema.schema.push({
+        kind: "model",
+        name: "Verification",
+        content: [
+          { kind: "field", content: "id         String   @id" },
+          { kind: "field", content: "identifier String" },
+          { kind: "field", content: "value      String" },
+          { kind: "field", content: 'expiresAt  DateTime @map("expires_at")' },
+          { kind: "field", content: 'createdAt  DateTime @map("created_at")' },
+          { kind: "field", content: 'updatedAt  DateTime @map("updated_at")' },
+          { kind: "modelAttribute", content: '@@map("verification")' },
+        ],
+      });
+      if (enableSsoPlugin) {
+        prismaSchema.schema.push({
+          kind: "model",
+          name: "SSOProvider",
+          content: [
+            { kind: "field", content: "id             String @id" },
+            { kind: "field", content: "issuer         String" },
+            { kind: "field", content: "domain         String" },
+            { kind: "field", content: 'oidcConfig     String @map("oidc_config")' },
+            { kind: "field", content: 'samlConfig     String @map("saml_config")' },
+            { kind: "field", content: 'userId         String @map("user_id")' },
+            {
+              kind: "field",
+              content: "user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)",
+            },
+            { kind: "field", content: 'providerId     String @map("provider_id")' },
+            { kind: "field", content: 'organizationId String @map("organization_id")' },
+            { kind: "modelAttribute", content: '@@map("sso_provider")' },
+          ],
+        });
+        prismaSchema
+          .getModelByNameOrThrow("User")
+          .content.push({ kind: "field", content: "ssoProviders    SSOProvider[]" });
+      }
+
+      await prismaSchema.save();
     }
 
     if (args.providers.includes("email")) {

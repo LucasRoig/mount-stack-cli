@@ -1,9 +1,9 @@
-import fs from "fs/promises";
+import fs from "node:fs/promises";
 import { match, P } from "ts-pattern";
 
 type PrismaSchema = PrismaRootNode[];
 
-type PrismaRootNode = DatasourceNode | GeneratorNode | ModelNode;
+type PrismaRootNode = DatasourceNode | GeneratorNode | ModelNode | EnumNode;
 
 type DatasourceNode = {
   kind: "datasource";
@@ -21,6 +21,12 @@ type ModelNode = {
   kind: "model";
   name: string;
   content: ModelContentNode[];
+};
+
+type EnumNode = {
+  kind: "enum";
+  name: string;
+  content: string;
 };
 
 type ModelContentNode = FieldNode | ModelAttibuteNode;
@@ -65,6 +71,29 @@ function parsePrismaSchema(schemaStr: string): PrismaSchema {
     }
     return t;
   };
+
+  function parseEnum(): EnumNode {
+    if (tokens[tokenIndex] !== "enum") {
+      throw new Error(`Expected 'enum', got '${tokens[tokenIndex]}'`);
+    }
+    const name = advanceToken();
+    const openingBrace = advanceToken();
+    if (openingBrace !== "{") {
+      throw new Error(`Expected '{' after enum name, got '${openingBrace}'`);
+    }
+    let content = "";
+    tokenIndex++; // consume the opening brace
+    while (getCurrentToken() !== "}") {
+      content += `${getCurrentToken()} `;
+      tokenIndex++;
+    }
+    tokenIndex++; // consume the closing brace
+    return {
+      kind: "enum",
+      name,
+      content: content.trim(),
+    };
+  }
 
   function parseDatasource(): DatasourceNode {
     if (tokens[tokenIndex] !== "datasource") {
@@ -175,6 +204,7 @@ function parsePrismaSchema(schemaStr: string): PrismaSchema {
     const node = match(getCurrentToken())
       .with("datasource", () => parseDatasource())
       .with("generator", () => parseGenerator())
+      .with("enum", () => parseEnum())
       .with("model", () => parseModel())
       .with(" ", "\n", () => {
         tokenIndex++;
@@ -190,6 +220,45 @@ function parsePrismaSchema(schemaStr: string): PrismaSchema {
   return schema;
 }
 
+function stringifyPrismaSchema(schema: PrismaSchema): string {
+  const lines: string[] = [];
+  for (const node of schema) {
+    match(node)
+      .with({ kind: "datasource" }, (datasource) => {
+        lines.push(`datasource ${datasource.name} {`);
+        lines.push(...datasource.content.split("\n").map((line) => `  ${line.trim()}`));
+        lines.push(`}`);
+        lines.push("");
+      })
+      .with({ kind: "generator" }, (generator) => {
+        lines.push(`generator ${generator.name} {`);
+        lines.push(...generator.content.split("\n").map((line) => `  ${line.trim()}`));
+        lines.push(`}`);
+        lines.push("");
+      })
+      .with({ kind: "enum" }, (enm) => {
+        lines.push(`enum ${enm.name} {`);
+        lines.push(...enm.content.split("\n").map((line) => `  ${line.trim()}`));
+        lines.push(`}`);
+        lines.push("");
+      })
+      .with({ kind: "model" }, (model) => {
+        lines.push(`model ${model.name} {`);
+        const fields = model.content.filter((c) => c.kind === "field");
+        const attributes = model.content.filter((c) => c.kind === "modelAttribute");
+        lines.push(
+          ...fields.map((field) => `  ${field.content.trim()}`),
+          "",
+          ...attributes.map((attr) => `  ${attr.content.trim()}`),
+        );
+        lines.push("}");
+        lines.push("");
+      })
+      .exhaustive();
+  }
+  return lines.join("\n");
+}
+
 export class PrismaSchemaFile {
   public readonly schema: PrismaSchema;
   private path: string | undefined;
@@ -200,7 +269,7 @@ export class PrismaSchemaFile {
     return new PrismaSchemaFile(schema, path);
   }
 
-  public static fromString(schemaStr: string, path = "schema.prisma"): PrismaSchemaFile {
+  public static fromString(schemaStr: string): PrismaSchemaFile {
     const schema = parsePrismaSchema(schemaStr);
     return new PrismaSchemaFile(schema, undefined);
   }
@@ -208,5 +277,25 @@ export class PrismaSchemaFile {
   private constructor(schema: PrismaSchema, path: string | undefined) {
     this.schema = schema;
     this.path = path;
+  }
+
+  public toString(): string {
+    return stringifyPrismaSchema(this.schema);
+  }
+
+  public async save(): Promise<void> {
+    if (!this.path) {
+      throw new Error("No path specified for saving the Prisma schema");
+    }
+    await fs.writeFile(this.path, this.toString(), "utf-8");
+  }
+
+  public getModelByNameOrThrow(name: string): ModelNode {
+    const model = this.schema.filter((node) => node.kind === "model").find((model) => model.name === name);
+
+    if (!model) {
+      throw new Error(`Model with name '${name}' not found in Prisma schema`);
+    }
+    return model;
   }
 }

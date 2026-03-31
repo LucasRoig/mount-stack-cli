@@ -523,10 +523,14 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
       if (!args.context.nextAppInstaller) {
         throw new Error("NextAppInstaller not initialized");
       }
+      if (!args.context.databaseInstaller) {
+        throw new Error("DatabaseInstaller not initialized");
+      }
       await BetterAuthInstaller.create({
         nextAppInstaller: args.context.nextAppInstaller,
         providers: args.context.betterAuthConfig.providers,
         useDatabase: args.context.betterAuthConfig.useDatabase,
+        databaseInstaller: args.context.databaseInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(

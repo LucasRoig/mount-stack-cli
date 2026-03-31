@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { updatePackage } from "pkg-types";
 import { TEMPLATE_ROOT } from "../consts";
+import { PrismaSchemaFile } from "../helpers/prisma-helper";
 import { replaceTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
 import { DockerComposeInstaller } from "./docker-compose-installer";
@@ -18,6 +19,15 @@ type DatabaseInstallerCreateArgs = {
 };
 
 export class DatabaseInstaller {
+  private prismaSchemaPath: string | undefined;
+
+  public getPrismaSchema() {
+    if (!this.prismaSchemaPath) {
+      throw new Error("Prisma schema path is not set");
+    }
+    return PrismaSchemaFile.fromFile(this.prismaSchemaPath);
+  }
+
   public static async create(args: DatabaseInstallerCreateArgs): Promise<DatabaseInstaller> {
     const installer = new DatabaseInstaller();
     await installer.init(args);
@@ -47,6 +57,7 @@ export class DatabaseInstaller {
 
     const templateDir = path.resolve(TEMPLATE_ROOT, "database", "prisma-drizzle", "package");
     await fs.cp(templateDir, packageInstaller.path, { recursive: true });
+    this.prismaSchemaPath = path.resolve(packageInstaller.path, "prisma", "schema.prisma");
 
     const envSamplePath = path.resolve(packageInstaller.path, ".env.sample");
     await replaceTextInFile(envSamplePath, "{{app-name-placeholder}}", args.monoRepoInstaller.appName);
