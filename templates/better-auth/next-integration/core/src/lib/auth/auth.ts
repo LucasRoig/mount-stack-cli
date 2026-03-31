@@ -31,7 +31,7 @@ export const auth = betterAuth({
   plugins: [
     ...(baseAuthConfig.plugins ?? []),
     // biome-ignore lint/suspicious/useAwait: customSession() might do some async initialization in the future, so we want to be able to await it if needed without changing the function signature.
-    customSession(async ({ user, session }, ctx) => {
+    customSession(async ({ user, session }, _ctx) => {
       return {
         user, // You can add additional properties to the session here if needed
         session,

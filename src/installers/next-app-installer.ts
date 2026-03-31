@@ -32,7 +32,7 @@ export const EnvSchemas = {
   String: "z.string().min(1)",
   PositiveInt: "z.coerce.number().int().positive()",
   Boolean: "_BooleanStringZod",
-  StringList: "CommaSeparatedListZod",
+  StringList: "_CommaSeparatedListZod",
 };
 
 type EnvSchema = (typeof EnvSchemas)[keyof typeof EnvSchemas];

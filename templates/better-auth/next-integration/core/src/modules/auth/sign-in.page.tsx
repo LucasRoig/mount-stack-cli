@@ -22,7 +22,7 @@ const useGetAuthErrorMessage = () => {
       return errorCodes[code as keyof typeof errorCodes];
     }
     return `Unknown error with code ${code}`;
-  }, [errorCodes, t]);
+  }, [errorCodes]);
 }
 
 export function SigninPage() {
@@ -47,7 +47,7 @@ function SignInBlock() {
   const [password, setPassword] = useState("");
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { data, error } = await signIn.email({
+    const { data: _data, error } = await signIn.email({
       email: email,
       password: password,
     });

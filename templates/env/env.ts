@@ -4,6 +4,7 @@ import { getLogger } from "@logtape/logtape";
 import { z } from "zod";
 
 const _BooleanStringZod = z.preprocess((val) => String(val).toLowerCase() === "true", z.boolean());
+const _CommaSeparatedListZod = z.string().transform((str) => str.split(",").map((s) => s.trim()).filter((s) => s.length > 0));
 const logger = getLogger(["next", "env"]);
 
 const envSchema = z.object({
