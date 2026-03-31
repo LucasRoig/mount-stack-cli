@@ -5,7 +5,7 @@ import { TEMPLATE_ROOT } from "../consts";
 import { PrismaSchemaFile } from "../helpers/prisma-helper";
 import { replaceTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
-import { DockerComposeInstaller } from "./docker-compose-installer";
+import type { DockerComposeInstaller } from "./docker-compose-installer";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
 import { EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
 import type { TsUtilsInstaller } from "./ts-utils-installer";
@@ -15,6 +15,7 @@ type DatabaseInstallerCreateArgs = {
   monoRepoInstaller: MonoRepoInstaller;
   nextAppInstaller: NextAppInstaller;
   tsUtilsInstaller: TsUtilsInstaller;
+  dockerComposeInstaller: DockerComposeInstaller;
   rootScriptPrefix?: string;
 };
 
@@ -34,7 +35,7 @@ export class DatabaseInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: DatabaseInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({
@@ -74,14 +75,12 @@ export class DatabaseInstaller {
         `pnpm --dir ${packageInstaller.relativePathFromMonorepoRoot} exec prisma migrate`;
     });
 
-    const dockerComposeInstaller = await DockerComposeInstaller.create({
-      path: path.resolve(args.monoRepoInstaller.rootPath, "docker-compose.yml"),
-    });
     const dockerPostgresUser = "postgres";
     const dockerPostgresPassword = "postgres";
     const dockerPostgresDatabase = args.monoRepoInstaller.appName;
     const dockerPostgresPort = "5432";
-    await dockerComposeInstaller.addService({
+    await args.dockerComposeInstaller.addManagedVolume(`${args.monoRepoInstaller.appName}-postgres-data`);
+    await args.dockerComposeInstaller.addService({
       serviceName: "database",
       containerName: `${args.monoRepoInstaller.appName}-database`,
       image: Versions["postgres-docker-image"],
@@ -91,6 +90,7 @@ export class DatabaseInstaller {
         POSTGRES_PASSWORD: dockerPostgresPassword,
         POSTGRES_DB: dockerPostgresDatabase,
       },
+      volumes: [`${args.monoRepoInstaller.appName}-postgres-data:/var/lib/postgresql`],
     });
 
     //Add in the next application

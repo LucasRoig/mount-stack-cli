@@ -11,6 +11,8 @@ type ServiceDefinition = {
   image: string;
   ports?: string[];
   environment?: Record<string, string>;
+  volumes?: string[];
+  command?: string;
 };
 
 export class DockerComposeInstaller {
@@ -20,7 +22,7 @@ export class DockerComposeInstaller {
     return installer;
   }
 
-  private constructor(private path: string) {}
+  private constructor(private path: string) { }
 
   private async init(args: DockerComposeInstallerCreateArgs) {
     if (await fs.stat(args.path).catch(() => false)) {
@@ -37,7 +39,16 @@ export class DockerComposeInstaller {
         image: args.image,
         ports: args.ports,
         environment: args.environment,
+        volumes: args.volumes,
+        command: args.command,
       };
+    });
+  }
+
+  public async addManagedVolume(name: string) {
+    await updateYamlFile(this.path, (data) => {
+      data.volumes = data.volumes || {};
+      data.volumes[name] = {};
     });
   }
 }

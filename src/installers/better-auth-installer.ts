@@ -3,10 +3,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { ts, VariableDeclarationKind } from "ts-morph";
 import { TEMPLATE_ROOT } from "../consts";
+import { updateJsonFile } from "../helpers/json-file";
 import { getSourceFile } from "../helpers/ts-files";
 import Versions from "../versions.json";
 import { CaslInstaller } from "./casl-installer";
 import type { DatabaseInstaller } from "./database-installer";
+import type { DockerComposeInstaller } from "./docker-compose-installer";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
 import { EnvSchemas, EnvVisibilities, type NextAppInstaller } from "./next-app-installer";
 import type { OrpcInstaller } from "./orpc-installer";
@@ -17,6 +19,7 @@ type BetterAuthInstallerCreateArgs = {
   nextAppInstaller: NextAppInstaller;
   orpcInstaller: OrpcInstaller;
   monoRepoInstaller: MonoRepoInstaller;
+  dockerComposeInstaller: DockerComposeInstaller;
   providers: BetterAuthProviders[];
   useDatabase: boolean;
 };
@@ -45,6 +48,13 @@ export class BetterAuthInstaller {
     );
     const coreSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "core", "src");
     await fs.cp(coreSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
+
+    await updateJsonFile(args.nextAppInstaller.i18nFiles.fr, (data) => {
+      data.authErrors = {
+        USER_ALREADY_EXISTS: "utilisateur déjà enregistré",
+        INVALID_EMAIL_OR_PASSWORD: "email ou mot de passe invalide",
+      };
+    });
 
     const enableSsoPlugin = args.providers.includes("oidc") || args.providers.includes("saml");
     const clientFile = await getSourceFile(
@@ -334,6 +344,20 @@ export class BetterAuthInstaller {
             }
           }),
         }`,
+      });
+      // Add Keycloak service to docker-compose
+      await args.dockerComposeInstaller.addManagedVolume(`${args.monoRepoInstaller.appName}-keycloak-data`);
+      await args.dockerComposeInstaller.addService({
+        serviceName: "keycloak",
+        containerName: `${args.monoRepoInstaller.appName}-keycloak`,
+        image: Versions["keycloak-docker-image"],
+        ports: [`8080:8080`],
+        environment: {
+          KC_BOOTSTRAP_ADMIN_USERNAME: "admin",
+          KC_BOOTSTRAP_ADMIN_PASSWORD: "admin",
+        },
+        volumes: [`${args.monoRepoInstaller.appName}-keycloak-data:/opt/keycloak/data`],
+        command: "start-dev --import-realm",
       });
     }
 

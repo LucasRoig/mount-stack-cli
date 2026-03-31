@@ -60,6 +60,9 @@ export class NextAppInstaller {
   private isI18nInstalled = false;
   private isLoggerInstalled = false;
   private isEnvFileManagementInstalled = false;
+  public readonly i18nFiles = {
+    fr: "",
+  }
 
   public static async create(args: NextAppInstallerArgs) {
     const installer = new NextAppInstaller(args);
@@ -83,6 +86,7 @@ export class NextAppInstaller {
     this.envSampleFilePath = resolve(this.nextAppRootPath, ".env.local.sample");
     this.envLocalFilePath = resolve(this.nextAppRootPath, ".env.local");
     this.envTsFilePath = resolve(this.srcPath, "env", "env.ts");
+    this.i18nFiles.fr = resolve(this.nextAppRootPath, "messages", "fr.json");
     this.logger = args.logger;
   }
 

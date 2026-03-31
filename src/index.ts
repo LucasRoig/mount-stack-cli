@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import path, { basename, resolve } from "node:path";
 import process from "node:process";
 import { cancel, confirm, intro, log, multiselect, outro, text } from "@clack/prompts";
 import color from "picocolors";
@@ -11,6 +11,7 @@ import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
 import { BetterAuthInstaller, type BetterAuthProviders } from "./installers/better-auth-installer";
 import { DatabaseInstaller } from "./installers/database-installer";
+import { DockerComposeInstaller } from "./installers/docker-compose-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import { OrpcInstaller } from "./installers/orpc-installer";
@@ -25,6 +26,7 @@ type Context = {
   databaseInstaller: DatabaseInstaller | undefined;
   tsUtilsInstaller: TsUtilsInstaller | undefined;
   orpcInstaller: OrpcInstaller | undefined;
+  dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
   | {
     enabled: true;
@@ -69,6 +71,7 @@ async function main() {
     betterAuthConfig: undefined,
     tsUtilsInstaller: undefined,
     orpcInstaller: undefined,
+    dockerComposeInstaller: undefined,
   };
 
   const setupBetterAuth = await confirm({
@@ -154,6 +157,11 @@ async function main() {
   setupTasks.push({
     title: "Adding ts-utils package...",
     task: addTsUtilsPackage({ path: projectPath, context }),
+  });
+
+  setupTasks.push({
+    title: "Adding docker-compose...",
+    task: addDockerCompose({ path: projectPath, context }),
   });
 
   setupTasks.push({
@@ -470,10 +478,14 @@ function addDatabasePackage(args: { path: string; context: Context }): TaskWithL
       if (!args.context.tsUtilsInstaller) {
         throw new Error("TsUtilsInstaller not initialized");
       }
+      if (!args.context.dockerComposeInstaller) {
+        throw new Error("DockerComposeInstaller not initialized");
+      }
       const databaseInstaller = await DatabaseInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
         nextAppInstaller: args.context.nextAppInstaller,
         tsUtilsInstaller: args.context.tsUtilsInstaller,
+        dockerComposeInstaller: args.context.dockerComposeInstaller,
       });
       args.context.databaseInstaller = databaseInstaller;
 
@@ -513,6 +525,28 @@ function addOrpcApiPackage(args: { path: string; context: Context }): TaskWithLo
   };
 }
 
+function addDockerCompose(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      args.context.dockerComposeInstaller = await DockerComposeInstaller.create({
+        path: path.resolve(args.context.monoRepoInstaller.rootPath, "docker-compose.yml")
+      });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: create docker-compose configuration" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message }
+        );
+      }
+      return { success: true, message: `Docker-compose configuration created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create docker-compose configuration: ${err}` };
+    }
+  };
+}
+
 function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
@@ -531,6 +565,10 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
       if (!args.context.orpcInstaller) {
         throw new Error("OrpcInstaller not initialized");
       }
+      if (!args.context.dockerComposeInstaller) {
+        throw new Error("DockerComposeInstaller not initialized");
+      }
+
       await BetterAuthInstaller.create({
         nextAppInstaller: args.context.nextAppInstaller,
         providers: args.context.betterAuthConfig.providers,
@@ -538,7 +576,9 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
         databaseInstaller: args.context.databaseInstaller,
         orpcInstaller: args.context.orpcInstaller,
         monoRepoInstaller: args.context.monoRepoInstaller,
+        dockerComposeInstaller: args.context.dockerComposeInstaller,
       });
+
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
           { cwd: args.path, message: "chore: setup BetterAuth authentication" },
