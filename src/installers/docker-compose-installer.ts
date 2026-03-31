@@ -22,7 +22,7 @@ export class DockerComposeInstaller {
     return installer;
   }
 
-  private constructor(private path: string) { }
+  private constructor(private path: string) {}
 
   private async init(args: DockerComposeInstallerCreateArgs) {
     if (await fs.stat(args.path).catch(() => false)) {

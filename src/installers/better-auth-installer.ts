@@ -30,7 +30,7 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);

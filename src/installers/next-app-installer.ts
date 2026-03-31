@@ -62,7 +62,7 @@ export class NextAppInstaller {
   private isEnvFileManagementInstalled = false;
   public readonly i18nFiles = {
     fr: "",
-  }
+  };
 
   public static async create(args: NextAppInstallerArgs) {
     const installer = new NextAppInstaller(args);

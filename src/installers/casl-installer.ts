@@ -18,7 +18,7 @@ export class CaslInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: CaslInstallerCreateArgs) {
     this.package = await TurboPackageInstaller.create({

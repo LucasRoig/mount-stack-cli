@@ -35,7 +35,7 @@ export class DatabaseInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: DatabaseInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({

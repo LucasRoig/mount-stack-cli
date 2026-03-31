@@ -28,12 +28,12 @@ type Context = {
   orpcInstaller: OrpcInstaller | undefined;
   dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
-  | {
-    enabled: true;
-    providers: BetterAuthProviders[];
-    useDatabase: boolean;
-  }
-  | undefined;
+    | {
+        enabled: true;
+        providers: BetterAuthProviders[];
+        useDatabase: boolean;
+      }
+    | undefined;
 };
 
 async function main() {
@@ -532,12 +532,12 @@ function addDockerCompose(args: { path: string; context: Context }): TaskWithLog
         throw new Error("MonoRepoInstaller not initialized");
       }
       args.context.dockerComposeInstaller = await DockerComposeInstaller.create({
-        path: path.resolve(args.context.monoRepoInstaller.rootPath, "docker-compose.yml")
+        path: path.resolve(args.context.monoRepoInstaller.rootPath, "docker-compose.yml"),
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
           { cwd: args.path, message: "chore: create docker-compose configuration" },
-          { onStdout: tmpLog.message, onStderr: tmpLog.message }
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
         );
       }
       return { success: true, message: `Docker-compose configuration created` };
