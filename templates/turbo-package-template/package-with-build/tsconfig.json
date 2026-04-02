@@ -4,6 +4,6 @@
   "exclude": ["dist", "build", "node_modules"],
   "compilerOptions": {
     "customConditions": ["vs-code-lsp"],
-    "baseUrl": ".",
+    "rootDir": ".",
   }
 }

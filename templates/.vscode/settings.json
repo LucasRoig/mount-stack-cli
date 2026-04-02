@@ -9,7 +9,7 @@
         "source.fixAll.eslint": "never",
         "source.organizeImports": "never"
     },
-    "typescript.preferences.preferTypeOnlyAutoImports": true,
+    "js/ts.preferences.preferTypeOnlyAutoImports": true,
     "editor.pasteAs.enabled": false,
     "files.watcherExclude": {
         "**/.git/objects/**": true,
@@ -22,6 +22,6 @@
         "**/node_modules": true,
         "**/.next": true
     },
-    "typescript.tsserver.maxTsServerMemory": 4096,
+    "js/ts.tsserver.maxMemory": 4096,
     "files.autoSave": "onFocusChange"
 }

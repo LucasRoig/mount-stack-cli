@@ -1,7 +1,7 @@
-import { o } from "../orpc";
+import { router } from "../orpc";
 import type { InferRouterInputs, InferRouterOutputs } from "@orpc/server";
 import { HelloProcedure } from "./hello.use-case";
-export const appRouter = o.router({
+export const appRouter = router({
   hello: HelloProcedure,
 });
 

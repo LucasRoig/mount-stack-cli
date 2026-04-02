@@ -1,5 +1,5 @@
 export function singleton<TValue>(name: string, producer: () => TValue): TValue {
-  const yolo = global as unknown as {
+  const yolo = globalThis as unknown as {
     __singletons: {
       [name]: TValue | undefined;
     };
