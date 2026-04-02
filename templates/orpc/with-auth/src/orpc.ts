@@ -36,3 +36,4 @@ export const procedures = {
   public: publicProcedure,
 }
 
+export const router = o.router;
