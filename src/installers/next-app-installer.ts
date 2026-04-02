@@ -139,6 +139,10 @@ export class NextAppInstaller {
 
     await this.addDevDependencyToPackageJson("typescript", Versions.typescript);
     await this.addDevDependencyToPackageJson("@repo/typescript-config", "workspace:*");
+
+    const publicDirPath = resolve(this.nextAppRootPath, "public");
+    await fs.mkdir(publicDirPath, { recursive: true });
+    await fs.writeFile(resolve(publicDirPath, ".gitkeep"), "");
   }
 
   public async addDependencyToPackageJson(dep: string, version: string) {
@@ -205,7 +209,7 @@ export class NextAppInstaller {
     }
 
     let justfileContent = "";
-    justfileContent += `docker_${this.appName}_name := ${this.appName}\n\n`;
+    justfileContent += `docker_${this.appName}_name := "${this.appName}"\n\n`;
     justfileContent += `@build_${this.appName} version:\n`;
     justfileContent += `\tdocker build -t {{docker_${this.appName}_name}}:{{version}} -f apps/${this.appName}/Dockerfile .\n\n`;
     justfileContent += `@run_${this.appName} version:\n`;

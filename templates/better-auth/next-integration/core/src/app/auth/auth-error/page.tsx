@@ -16,7 +16,7 @@ function sanitize(input: string): string {
     .replace(/&(?!amp;|lt;|gt;|quot;|#39;|#x[0-9a-fA-F]+;|#[0-9]+;)/g, "&amp;");
 }
 
-export default async function AuthErrorPage(props: PageProps<'/auth-error'>) {
+export default async function AuthErrorPage(props: PageProps<'/auth/auth-error'>) {
   const {
     error: unsanitizedCode,
     error_description: unsanitizedDescription

@@ -52,9 +52,6 @@ RUN adduser --system --uid 1001 nodejs
 
 RUN apk update && apk upgrade --no-cache
 
-# update npm FIX CVE-2023-42282
-RUN npm install -g npm@10 && npm cache clean --force
-
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
