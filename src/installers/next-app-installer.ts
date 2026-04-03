@@ -47,7 +47,7 @@ export class NextAppInstaller {
   private envTsFilePath: string;
   private tsConfigPath: string;
   private globalsCssPath: string;
-  private rootLayoutPath: string;
+  public readonly rootLayoutPath: string;
   private instrumentationPath: string;
   private packageJsonPath: string;
   private nextConfigPath: string;
@@ -143,6 +143,10 @@ export class NextAppInstaller {
     const publicDirPath = resolve(this.nextAppRootPath, "public");
     await fs.mkdir(publicDirPath, { recursive: true });
     await fs.writeFile(resolve(publicDirPath, ".gitkeep"), "");
+
+    const fontsTemplateDir = resolve(TEMPLATE_ROOT, "next-app", "fonts");
+    const fontsDestDir = resolve(this.appRouterDirPath, "fonts");
+    await fs.cp(fontsTemplateDir, fontsDestDir, { recursive: true });
   }
 
   public async addDependencyToPackageJson(dep: string, version: string) {

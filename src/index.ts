@@ -16,6 +16,7 @@ import { DockerComposeInstaller } from "./installers/docker-compose-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import { OrpcInstaller } from "./installers/orpc-installer";
+import { installRealWorldApp } from "./installers/real-world-app-installer";
 import { TsUtilsInstaller } from "./installers/ts-utils-installer";
 import Versions from "./versions.json";
 
@@ -35,6 +36,7 @@ type Context = {
         useDatabase: boolean;
       }
     | undefined;
+  designSystemInstaller: DesignSystemInstaller | undefined;
 };
 
 async function main() {
@@ -73,6 +75,7 @@ async function main() {
     tsUtilsInstaller: undefined,
     orpcInstaller: undefined,
     dockerComposeInstaller: undefined,
+    designSystemInstaller: undefined,
   };
 
   const setupBetterAuth = await confirm({
@@ -112,6 +115,13 @@ async function main() {
     message: "Do you want to install the design system ?",
     initialValue: true,
   });
+
+  const shouldInstallRealWorldApp = setupDesignSystem
+    ? await confirm({
+        message: "Do you want to setup the real-world app exemple in the Next.js app ?",
+        initialValue: true,
+      })
+    : false;
 
   const setupTasks: TaskWithLogDefinition[] = [];
 
@@ -196,6 +206,13 @@ async function main() {
     setupTasks.push({
       title: "Installing design system...",
       task: installDesignSystem({ path: projectPath, context }),
+    });
+  }
+
+  if (shouldInstallRealWorldApp) {
+    setupTasks.push({
+      title: "Setting up real-world app exemple...",
+      task: setupRealWorldExemple({ path: projectPath, context }),
     });
   }
 
@@ -637,8 +654,12 @@ function installDesignSystem(args: { path: string; context: Context }): TaskWith
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
-      await DesignSystemInstaller.create({
+      if (!args.context.nextAppInstaller) {
+        throw new Error("NextAppInstaller not initialized");
+      }
+      args.context.designSystemInstaller = await DesignSystemInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
+        nextAppInstaller: args.context.nextAppInstaller,
         onStdout: tmpLog.message,
         onStderr: tmpLog.message,
       });
@@ -735,6 +756,32 @@ function writeREADME(args: { path: string }): TaskWithLogDefinition["task"] {
       return { success: true, message: `README file created` };
     } catch (err) {
       return { success: false, message: `Failed to create README file: ${err}` };
+    }
+  };
+}
+
+function setupRealWorldExemple(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      if (!args.context.nextAppInstaller) {
+        throw new Error("NextAppInstaller not initialized");
+      }
+      if (!args.context.designSystemInstaller) {
+        throw new Error("DesignSystemInstaller not initialized");
+      }
+      await installRealWorldApp({
+        nextAppInstaller: args.context.nextAppInstaller,
+        designSystemInstaller: args.context.designSystemInstaller,
+      });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: setup real-world app exemple" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
+      return { success: true, message: `Real-world app exemple setup` };
+    } catch (err) {
+      return { success: false, message: `Failed to setup real-world app exemple: ${err}` };
     }
   };
 }

@@ -1,17 +1,25 @@
+import fs from "node:fs/promises";
+import { resolve } from "node:path";
+import { TEMPLATE_ROOT } from "../consts";
 import { Git } from "../helpers/git";
+import { updateYamlFile } from "../helpers/yaml-file";
+import Versions from "../versions.json";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
+import type { NextAppInstaller } from "./next-app-installer";
 
 const submoduleRepo = "https://github.com/LucasRoig/react-ui-submodule.git";
 const submoduleBranch = "main";
-const submodulePrefix = "@lro-ui";
+const directoryName = "design-system";
 
 type DesignSystemInstallerOptions = {
   monoRepoInstaller: MonoRepoInstaller;
+  nextAppInstaller: NextAppInstaller;
   onStdout?: (msg: string) => void;
   onStderr?: (msg: string) => void;
 };
 
 export class DesignSystemInstaller {
+  public readonly submodulePrefix = "@lro-ui";
   public static async create(options: DesignSystemInstallerOptions) {
     const installer = new DesignSystemInstaller();
     await installer.init(options);
@@ -25,7 +33,7 @@ export class DesignSystemInstaller {
       {
         branch: submoduleBranch,
         repo: submoduleRepo,
-        directoryName: "design-system",
+        directoryName: directoryName,
         cwd: options.monoRepoInstaller.rootPath,
       },
       {
@@ -33,5 +41,18 @@ export class DesignSystemInstaller {
         onStderr: options.onStderr,
       },
     );
+
+    const pnpmWorkspaceConfigPath = resolve(options.monoRepoInstaller.rootPath, "pnpm-workspace.yaml");
+    await updateYamlFile(pnpmWorkspaceConfigPath, (data) => {
+      if (!data.packages) {
+        data.packages = [];
+      }
+      data.packages.push(`${directoryName}/**/*`);
+    });
+
+    const nextIntegrationTemplatePath = resolve(TEMPLATE_ROOT, "design-system", "next-integration");
+    await fs.cp(nextIntegrationTemplatePath, options.nextAppInstaller.nextAppRootPath, { recursive: true });
+
+    await options.nextAppInstaller.addDependencyToPackageJson("tw-animate-css", Versions["tw-animate-css"]);
   }
 }

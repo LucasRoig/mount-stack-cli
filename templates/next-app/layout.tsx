@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import localFont from "next/font/local";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -8,6 +9,15 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-geist-sans",
+});
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff",
+  variable: "--font-geist-mono",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -15,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-dvh text-foreground`}>{children}</body>
     </html>
   );
 }
