@@ -280,7 +280,7 @@ export class BetterAuthInstaller {
       args.nextAppInstaller.addEnvVariable(
         "BETTER_AUTH_TRUSTED_ORIGINS",
         EnvVisibilities.SERVER,
-        "http://localhost:3000",
+        "http://localhost:8080",
         { schema: EnvSchemas.StringList },
       );
       baseAuthConfigDeclaration.addPropertyAssignment({

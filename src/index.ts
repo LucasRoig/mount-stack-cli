@@ -11,6 +11,7 @@ import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
 import { BetterAuthInstaller, type BetterAuthProviders } from "./installers/better-auth-installer";
 import { DatabaseInstaller } from "./installers/database-installer";
+import { DesignSystemInstaller } from "./installers/design-system-installer";
 import { DockerComposeInstaller } from "./installers/docker-compose-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
@@ -107,6 +108,11 @@ async function main() {
     };
   }
 
+  const setupDesignSystem = await confirm({
+    message: "Do you want to install the design system ?",
+    initialValue: true,
+  });
+
   const setupTasks: TaskWithLogDefinition[] = [];
 
   setupTasks.push({
@@ -186,6 +192,13 @@ async function main() {
     });
   }
 
+  if (setupDesignSystem) {
+    setupTasks.push({
+      title: "Installing design system...",
+      task: installDesignSystem({ path: projectPath, context }),
+    });
+  }
+
   setupTasks.push({
     title: "Installing dependencies...",
     task: installDependencies({ path: projectPath }),
@@ -199,6 +212,11 @@ async function main() {
   setupTasks.push({
     title: "Running pnpm fix...",
     task: runPnpmFix({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Adding README file...",
+    task: writeREADME({ path: projectPath }),
   });
 
   try {
@@ -613,6 +631,30 @@ function installDependencies(args: { path: string }): TaskWithLogDefinition["tas
   };
 }
 
+function installDesignSystem(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      await DesignSystemInstaller.create({
+        monoRepoInstaller: args.context.monoRepoInstaller,
+        onStdout: tmpLog.message,
+        onStderr: tmpLog.message,
+      });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: install design system" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
+      return { success: true, message: `Design system installed` };
+    } catch (err) {
+      return { success: false, message: `Failed to install design system: ${err}` };
+    }
+  };
+}
+
 function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
@@ -673,6 +715,26 @@ function addTsUtilsPackage(args: { path: string; context: Context }): TaskWithLo
       return { success: true, message: `ts-utils package created` };
     } catch (err) {
       return { success: false, message: `Failed to create ts-utils package: ${err}` };
+    }
+  };
+}
+
+function writeREADME(args: { path: string }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      const readmePath = resolve(args.path, "README.md");
+      const readmeTemplatePath = resolve(TEMPLATE_ROOT, "readme", "README.md");
+      await fs.rm(readmePath, { force: true });
+      await fs.copyFile(readmeTemplatePath, readmePath);
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "docs: add README file" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
+      return { success: true, message: `README file created` };
+    } catch (err) {
+      return { success: false, message: `Failed to create README file: ${err}` };
     }
   };
 }
