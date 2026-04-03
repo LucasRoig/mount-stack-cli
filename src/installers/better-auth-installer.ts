@@ -61,10 +61,11 @@ export class BetterAuthInstaller {
       path.resolve(args.nextAppInstaller.srcPath, "lib", "auth", "auth-client.ts"),
     );
     const authFile = await getSourceFile(path.resolve(args.nextAppInstaller.srcPath, "lib", "auth", "auth.ts"));
-    const baseAuthConfigDeclaration = authFile
-      .getVariableStatementOrThrow("baseAuthConfig")
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+    const createBaseAuthConfigFunctionBlock = authFile
+      .getFunctionOrThrow("createBaseAuthConfig")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.Block);
+    const baseAuthConfigDeclaration = createBaseAuthConfigFunctionBlock
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ReturnStatement)
       .getFirstChildByKindOrThrow(ts.SyntaxKind.SatisfiesExpression)
       .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
 
@@ -293,7 +294,7 @@ export class BetterAuthInstaller {
       if (args.providers.includes("saml")) {
         ssoProvidersTypes.push("SAMLProvider");
       }
-      authFile.insertVariableStatement(9, {
+      createBaseAuthConfigFunctionBlock.insertVariableStatement(0, {
         declarationKind: VariableDeclarationKind.Const,
         declarations: [
           {
@@ -373,7 +374,7 @@ export class BetterAuthInstaller {
       await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_CLIENT_SECRET", EnvVisibilities.SECRET);
       await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_DISCOVERY_ENDPOINT", EnvVisibilities.SERVER);
       await args.nextAppInstaller.addEnvVariable("BETTER_AUTH_OIDC_ISSUER", EnvVisibilities.SERVER);
-      const ssoProvidersDeclaration = authFile
+      const ssoProvidersDeclaration = createBaseAuthConfigFunctionBlock
         .getVariableStatementOrThrow("SSO_PROVIDERS")
         .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
         .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
@@ -408,7 +409,7 @@ export class BetterAuthInstaller {
         namedImports: ["SAMLProvider"],
         moduleSpecifier: "./sso/saml-provider",
       });
-      const ssoProvidersDeclaration = authFile
+      const ssoProvidersDeclaration = createBaseAuthConfigFunctionBlock
         .getVariableStatementOrThrow("SSO_PROVIDERS")
         .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
         .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
@@ -440,7 +441,7 @@ export class BetterAuthInstaller {
     await args.orpcInstaller.setupAuthProcedure();
     const orpcContextFile = await args.orpcInstaller.getContextProviderFile();
     orpcContextFile.insertImportDeclarations(1, [
-      { namedImports: ["auth"], moduleSpecifier: "../auth/auth" },
+      { namedImports: ["getAuth"], moduleSpecifier: "../auth/auth" },
       { namedImports: ["headers"], moduleSpecifier: "next/headers" },
     ]);
     const getOrpcContextFunctionBlock = orpcContextFile
@@ -449,7 +450,7 @@ export class BetterAuthInstaller {
     getOrpcContextFunctionBlock.insertStatements(
       0,
       `
-      const session = await auth.api.getSession({
+      const session = await getAuth().api.getSession({
         headers: await headers(),
       });
     `,

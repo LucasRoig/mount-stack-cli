@@ -18,7 +18,7 @@ import { OrpcInstaller } from "./installers/orpc-installer";
 import { TsUtilsInstaller } from "./installers/ts-utils-installer";
 import Versions from "./versions.json";
 
-const SKIP_COMMIT = false;
+const SKIP_COMMIT = true;
 
 type Context = {
   monoRepoInstaller: MonoRepoInstaller | undefined;
