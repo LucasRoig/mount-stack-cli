@@ -5,12 +5,10 @@ export type OrpcContext = {
   database: AppDatabase;
 };
 
-const o = os.$context<OrpcContext>();
+export const o = os.$context<OrpcContext>();
 
 const publicProcedure = o;
 
 export const procedures = {
   public: publicProcedure,
 };
-
-export const router = o.router;

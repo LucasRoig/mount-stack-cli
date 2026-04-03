@@ -12,7 +12,7 @@ export type OrpcContext = {
 };
 
 
-const o = os.$context<OrpcContext>();
+export const o = os.$context<OrpcContext>();
 
 const authMiddleware = o.middleware(({ context, next }) => {
   if (!context.session) {
@@ -35,5 +35,3 @@ export const procedures = {
   private: privateProcedure,
   public: publicProcedure,
 }
-
-export const router = o.router;
