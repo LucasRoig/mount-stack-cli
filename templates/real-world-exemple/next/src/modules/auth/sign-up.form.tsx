@@ -2,8 +2,10 @@
 import { Button } from "@lro-ui/button";
 import { FieldGroup, FieldSeparator } from "@lro-ui/field";
 import { useAppForm } from "@lro-ui/form";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import z from "zod";
+import { signUp } from "@/lib/auth/auth-client";
+import { type AuthError, AuthErrorField } from "./auth-error-field";
 
 //TODO: Make a custom password field with strenght indicator to show to extend the app form declared in the design system with new components.
 
@@ -27,10 +29,24 @@ const formDefaultValues = {
 };
 
 export function SignUpForm() {
+  const [globalError, setGlobalError] = useState<AuthError>();
   const form = useAppForm({
     defaultValues: formDefaultValues,
     validators: {
       onSubmit: signUpFormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setGlobalError(undefined);
+      const { error } = await signUp.email({
+        email: value.email,
+        password: value.password,
+        name: value.username,
+        callbackURL: "/",
+      });
+      if (error) {
+        console.log(error);
+        setGlobalError(error);
+      }
     },
   });
   const formRef = useRef<HTMLFormElement>(null);
@@ -39,19 +55,28 @@ export function SignUpForm() {
     <form.AppForm>
       <form.FormRoot ref={formRef}>
         <FieldGroup>
-          <form.AppField name="username">{(field) => <field.TextField label="Username" />}</form.AppField>
-          <form.AppField name="email">{(field) => <field.TextField label="Email" />}</form.AppField>
+          <form.AppField name="username">{(field) => <field.TextField label="Username" autoComplete="username" />}</form.AppField>
+          <form.AppField name="email">{(field) => <field.TextField label="Email" autoComplete="email" />}</form.AppField>
           <form.AppField name="password">
-            {(field) => <field.TextField label="Password" description="Must be at least 8 characters long." />}
+            {(field) => (
+              <field.TextField type="password" label="Password" description="Must be at least 8 characters long." autoComplete="new-password" />
+            )}
           </form.AppField>
           <form.AppField name="confirmPassword">
-            {(field) => <field.TextField label="Confirm Password" description="Please confirm your password." />}
+            {(field) => (
+              <field.TextField type="password" label="Confirm Password" description="Please confirm your password." autoComplete="new-password" />
+            )}
           </form.AppField>
+          <AuthErrorField error={globalError} />
           <form.SubmitButton>Create your account</form.SubmitButton>
           <FieldSeparator>Or</FieldSeparator>
           <div className="flex flex-col gap-4">
-            <Button variant="secondary" type="button">Continue with OIDC</Button>
-            <Button variant="secondary" type="button">Continue with SAML</Button>
+            <Button variant="secondary" type="button">
+              Continue with OIDC
+            </Button>
+            <Button variant="secondary" type="button">
+              Continue with SAML
+            </Button>
           </div>
         </FieldGroup>
       </form.FormRoot>

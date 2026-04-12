@@ -12,7 +12,7 @@ export async function SignUpPage() {
   if (session) {
     return redirect("/");
   }
-  return <Container className="mt-6 w-full px-4" maxWidth="sm">
+  return <Container className="my-6 w-full px-4" maxWidth="sm">
     <div className="flex flex-col items-center gap-1 text-center">
       <h1 className="text-2xl font-bold">Create your account</h1>
       <p className="text-sm text-balance text-muted-foreground">Fill in the form below to create your account</p>
