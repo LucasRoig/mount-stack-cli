@@ -16,6 +16,7 @@ import { DockerComposeInstaller } from "./installers/docker-compose-installer";
 import { MonoRepoInstaller } from "./installers/mono-repo-installer";
 import { NextAppInstaller } from "./installers/next-app-installer";
 import { OrpcInstaller } from "./installers/orpc-installer";
+import { PlaywrightInstaller } from "./installers/playwright-installer";
 import { installRealWorldApp } from "./installers/real-world-app-installer";
 import { TsUtilsInstaller } from "./installers/ts-utils-installer";
 import Versions from "./versions.json";
@@ -78,6 +79,11 @@ async function main() {
     designSystemInstaller: undefined,
   };
 
+  const shouldSetupPlaywright = await confirm({
+    message: "Do you want to setup Playwright for end-to-end testing ?",
+    initialValue: true,
+  });
+
   const setupBetterAuth = await confirm({
     message: "Do you want to setup authentication with BetterAuth ?",
     initialValue: true,
@@ -116,12 +122,13 @@ async function main() {
     initialValue: true,
   });
 
-  const shouldInstallRealWorldApp = setupDesignSystem
-    ? await confirm({
-        message: "Do you want to setup the real-world app exemple in the Next.js app ?",
-        initialValue: true,
-      })
-    : false;
+  const shouldInstallRealWorldApp =
+    setupDesignSystem && shouldSetupPlaywright
+      ? await confirm({
+          message: "Do you want to setup the real-world app exemple in the Next.js app ?",
+          initialValue: true,
+        })
+      : false;
 
   const setupTasks: TaskWithLogDefinition[] = [];
 
@@ -184,6 +191,13 @@ async function main() {
     title: "Creating Next.js app...",
     task: createNextApp({ path: projectPath, name: "web-exemple", context }),
   });
+
+  if (shouldSetupPlaywright) {
+    setupTasks.push({
+      title: "Setting up Playwright for end-to-end testing...",
+      task: setupPlaywright({ path: projectPath, context }),
+    });
+  }
 
   setupTasks.push({
     title: "Adding database package...",
@@ -782,6 +796,29 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
       return { success: true, message: `Real-world app exemple setup` };
     } catch (err) {
       return { success: false, message: `Failed to setup real-world app exemple: ${err}` };
+    }
+  };
+}
+
+function setupPlaywright(args: { path: string; context: Context }): TaskWithLogDefinition["task"] {
+  return async (tmpLog) => {
+    try {
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
+      await PlaywrightInstaller.create({
+        monoRepoInstaller: args.context.monoRepoInstaller,
+        appName: "e2e",
+      });
+      if (!SKIP_COMMIT) {
+        await Git.commitAllFiles(
+          { cwd: args.path, message: "chore: setup Playwright E2E testing" },
+          { onStdout: tmpLog.message, onStderr: tmpLog.message },
+        );
+      }
+      return { success: true, message: `Playwright E2E testing setup` };
+    } catch (err) {
+      return { success: false, message: `Failed to setup Playwright E2E testing: ${err}` };
     }
   };
 }

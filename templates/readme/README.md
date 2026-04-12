@@ -9,6 +9,12 @@
 * `pnpm db:migrate dev`
 * `pnpm db:generate`
 
+## Install playwright
+
+If your are not using e2e tests you can skip this part.
+
+* `pnpm --dir apps/e2e exec playwright install`
+
 ## Configure keycloak
 
 If you are not using SSO authentication you can skip this part.
@@ -54,6 +60,10 @@ If you are not using SAML authentication you can skip this part
 ## Check docker build
 
 `just build_web-exemple latest`
+
+## Run playwright tests
+
+`pnpm e2e:test`
 
 ## Run dev
 
