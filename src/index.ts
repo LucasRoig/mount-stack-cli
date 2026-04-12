@@ -29,6 +29,7 @@ type Context = {
   databaseInstaller: DatabaseInstaller | undefined;
   tsUtilsInstaller: TsUtilsInstaller | undefined;
   orpcInstaller: OrpcInstaller | undefined;
+  playwrightInstaller: PlaywrightInstaller | undefined;
   dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
     | {
@@ -77,6 +78,7 @@ async function main() {
     orpcInstaller: undefined,
     dockerComposeInstaller: undefined,
     designSystemInstaller: undefined,
+    playwrightInstaller: undefined,
   };
 
   const shouldSetupPlaywright = await confirm({
@@ -783,9 +785,13 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
       if (!args.context.designSystemInstaller) {
         throw new Error("DesignSystemInstaller not initialized");
       }
+      if (!args.context.playwrightInstaller) {
+        throw new Error("PlaywrightInstaller not initialized");
+      }
       await installRealWorldApp({
         nextAppInstaller: args.context.nextAppInstaller,
         designSystemInstaller: args.context.designSystemInstaller,
+        playwrightInstaller: args.context.playwrightInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
@@ -806,7 +812,7 @@ function setupPlaywright(args: { path: string; context: Context }): TaskWithLogD
       if (!args.context.monoRepoInstaller) {
         throw new Error("MonoRepoInstaller not initialized");
       }
-      await PlaywrightInstaller.create({
+      args.context.playwrightInstaller = await PlaywrightInstaller.create({
         monoRepoInstaller: args.context.monoRepoInstaller,
         appName: "e2e",
       });

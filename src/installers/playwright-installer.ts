@@ -11,7 +11,7 @@ type PlaywrightInstallerArgs = {
 };
 
 export class PlaywrightInstaller {
-  private rootPath: string;
+  public rootPath: string;
   private readonly packageJsonPath: string;
 
   public static async create(args: PlaywrightInstallerArgs): Promise<PlaywrightInstaller> {

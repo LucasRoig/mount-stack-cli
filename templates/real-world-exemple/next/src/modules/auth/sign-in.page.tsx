@@ -10,8 +10,6 @@ import { SignInForm } from "./sign-in.form";
 //TODO: On rencontre une erreur à travers le provider OIDC lorsque l'utilisateur s'est déjà connecté une fois avec un autre provider
 //L'utilisateur est redirigé vers /?error=account_not_linked sans la moindre erreur ou message.
 
-
-
 export async function SigninPage() {
   const session = await getAuth().api.getSession({
     headers: await headers(),
@@ -23,7 +21,9 @@ export async function SigninPage() {
   return (
     <Container className="my-6 w-full px-4" maxWidth="sm">
       <div className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-2xl font-bold">Login to your account</h1>
+        <h1 className="text-2xl font-bold" data-testid="sign-in-page-title">
+          Login to your account
+        </h1>
         <p className="text-sm text-balance text-muted-foreground">Enter your email below to login to your account</p>
       </div>
       <div className="mt-6 w-full">

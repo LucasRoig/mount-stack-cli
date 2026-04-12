@@ -5,15 +5,20 @@ import { NextLayoutFile } from "../helpers/next-layout-file";
 import Versions from "../versions.json";
 import type { DesignSystemInstaller } from "./design-system-installer";
 import type { NextAppInstaller } from "./next-app-installer";
+import type { PlaywrightInstaller } from "./playwright-installer";
 
 type InstallRealWorldAppOptions = {
   nextAppInstaller: NextAppInstaller;
   designSystemInstaller: DesignSystemInstaller;
+  playwrightInstaller: PlaywrightInstaller;
 };
 
 export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   const nextTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "next");
   await fs.cp(nextTemplateRoot, options.nextAppInstaller.nextAppRootPath, { recursive: true });
+
+  const playwrightTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "e2e");
+  await fs.cp(playwrightTemplateRoot, options.playwrightInstaller.rootPath, { recursive: true });
 
   const submodulePrefix = options.designSystemInstaller.submodulePrefix;
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/button`, "workspace:*");

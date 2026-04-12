@@ -15,7 +15,7 @@ export function HomePage(_props: PageProps<"/">) {
 
 function Hero() {
   return (
-    <div className="border-b p-8 mb-8">
+    <div className="border-b p-8 mb-8" data-testid="home-page-hero">
       <Container className="text-center">
         <h1 className="text-6xl mb-4">Conduit</h1>
         <p className="text-muted-foreground">A place to share your knowledge</p>
@@ -29,9 +29,9 @@ function Feed({ className }: { className?: string }) {
 }
 
 function Tags({ className }: { className?: string }) {
-  return <div className={cn(" border-l pl-4", className)}>
-    <div className="bg-cyan-300">
-      Tags
+  return (
+    <div className={cn(" border-l pl-4", className)}>
+      <div className="bg-cyan-300">Tags</div>
     </div>
-  </div>;
+  );
 }
