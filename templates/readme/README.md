@@ -4,6 +4,11 @@
 
 `docker compose up -d`
 
+## Run database migrations
+
+* `pnpm db:migrate dev`
+* `pnpm db:generate`
+
 ## Configure keycloak
 
 If you are not using SSO authentication you can skip this part.
@@ -34,11 +39,11 @@ If you are not using OIDC authentication you can skip this part
 
 If you are not using SAML authentication you can skip this part
 
-* Inside the newly created realm, click on realm settings > keys and copy the certificate of the key with alogorithm RS256 and use SIG.
 * Click on realm settings > SAML 2.0 Identity Provider Metadata and find the `SingleSignOnService` in the xml. Copy the location to the `BETTER_AUTH_SAML_IDP_SSO_LOGIN_URL`
 * Set the `BETTER_AUTH_SAML_ISSUER` variable to the realm part of the discovery location ex: `http://localhost:8080/realms/my-realm-name`
+* Inside the newly created realm, click on realm settings > keys and copy the certificate of the key with alogorithm RS256 and use SIG.
 * Paste this key in `apps/web-exemple/certificates/idp-public.pem`. In this file add `-----BEGIN CERTIFICATE-----` on the first line and `-----END CERTIFICATE-----` on the last line
-* Create a new SAML Client and paste it's ClientID inside `apps/web-exemple/env.local` in the `BETTER_AUTH_OIDC_CLIENT_ID` key
+* Create a new SAML Client and paste it's ClientID inside `apps/web-exemple/env.local` in the `BETTER_AUTH_SAML_SP_ENTITY_ID` key
 * Use the following config for the client :
   * Root URL => http://localhost:3000
   * Home URL => http://localhost:3000

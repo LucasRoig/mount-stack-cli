@@ -147,6 +147,14 @@ export class NextAppInstaller {
     const fontsTemplateDir = resolve(TEMPLATE_ROOT, "next-app", "fonts");
     const fontsDestDir = resolve(this.appRouterDirPath, "fonts");
     await fs.cp(fontsTemplateDir, fontsDestDir, { recursive: true });
+
+    await updatePackage(this.monoRepoInstaller.rootPackageJsonPath, (pkg) => {
+      if (!pkg.scripts) {
+        pkg.scripts = {};
+      }
+      pkg.scripts.dev = `turbo run dev --filter=${this.appName}`;
+      pkg.scripts.build = `turbo run build --filter=${this.appName}`;
+    });
   }
 
   public async addDependencyToPackageJson(dep: string, version: string) {
