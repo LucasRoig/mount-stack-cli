@@ -21,7 +21,7 @@ export class OrpcInstaller {
     return installer;
   }
 
-  private constructor(private args: OrpcInstallerCreateArgs) {}
+  private constructor(private args: OrpcInstallerCreateArgs) { }
 
   private async init(args: OrpcInstallerCreateArgs) {
     this.package = await TurboPackageInstaller.create({
@@ -63,5 +63,19 @@ export class OrpcInstaller {
 
   public getContextProviderFile() {
     return getSourceFile(path.resolve(this.args.nextAppInstaller.srcPath, "lib", "orpc", "orpc-context.ts"));
+  }
+
+  public addDependencyToPackageJson(dep: string, version: string) {
+    if (!this.package) {
+      throw new Error("Package installer not initialized");
+    }
+    return this.package.addDependencyToPackageJson(dep, version);
+  }
+
+  public getRootPath() {
+    if (!this.package) {
+      throw new Error("Package installer not initialized");
+    }
+    return this.package.path;
   }
 }

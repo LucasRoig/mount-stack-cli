@@ -4,14 +4,18 @@ import ts from "typescript";
 import { TEMPLATE_ROOT } from "../consts";
 import { NextLayoutFile } from "../helpers/next-layout-file";
 import Versions from "../versions.json";
+import type { DatabaseInstaller } from "./database-installer";
 import type { DesignSystemInstaller } from "./design-system-installer";
 import type { NextAppInstaller } from "./next-app-installer";
+import type { OrpcInstaller } from "./orpc-installer";
 import type { PlaywrightInstaller } from "./playwright-installer";
 
 type InstallRealWorldAppOptions = {
   nextAppInstaller: NextAppInstaller;
   designSystemInstaller: DesignSystemInstaller;
   playwrightInstaller: PlaywrightInstaller;
+  orpcInstaller: OrpcInstaller;
+  databaseInstaller: DatabaseInstaller;
 };
 
 export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
@@ -20,6 +24,14 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
 
   const playwrightTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "e2e");
   await fs.cp(playwrightTemplateRoot, options.playwrightInstaller.rootPath, { recursive: true });
+
+  const apiTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "api");
+  await fs.cp(apiTemplateRoot, options.orpcInstaller.getRootPath(), { recursive: true });
+
+  //database
+  const prismaSchema = await options.databaseInstaller.getPrismaSchema();
+  prismaSchema.getModelByNameOrThrow("User").content.push({ kind: "field", content: "bio    String?" });
+  await prismaSchema.save();
 
   const submodulePrefix = options.designSystemInstaller.submodulePrefix;
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/avatar`, "workspace:*");
@@ -41,7 +53,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   routesObject.addPropertyAssignments([
     {
       name: "settings",
-      initializer: "\"/settings\"",
+      initializer: '"/settings"',
     },
     {
       name: "profile",
@@ -49,11 +61,12 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
       initializer: "(username: string) => `/profile/${username}`",
     },
   ]);
-  routesObject.getPropertyOrThrow("auth")
+  routesObject
+    .getPropertyOrThrow("auth")
     .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
     .addPropertyAssignment({
       name: "signUp",
-      initializer: "\"/auth/sign-up\""
+      initializer: '"/auth/sign-up"',
     });
   routeFile.formatText();
   await routeFile.save();
@@ -74,4 +87,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
 
   // Remove useless page
   await fs.rmdir(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), { recursive: true });
+
+  //API
+  options.orpcInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
 }

@@ -32,12 +32,12 @@ type Context = {
   playwrightInstaller: PlaywrightInstaller | undefined;
   dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
-    | {
-        enabled: true;
-        providers: BetterAuthProviders[];
-        useDatabase: boolean;
-      }
-    | undefined;
+  | {
+    enabled: true;
+    providers: BetterAuthProviders[];
+    useDatabase: boolean;
+  }
+  | undefined;
   designSystemInstaller: DesignSystemInstaller | undefined;
 };
 
@@ -127,9 +127,9 @@ async function main() {
   const shouldInstallRealWorldApp =
     setupDesignSystem && shouldSetupPlaywright
       ? await confirm({
-          message: "Do you want to setup the real-world app exemple in the Next.js app ?",
-          initialValue: true,
-        })
+        message: "Do you want to setup the real-world app exemple in the Next.js app ?",
+        initialValue: true,
+      })
       : false;
 
   const setupTasks: TaskWithLogDefinition[] = [];
@@ -788,10 +788,18 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
       if (!args.context.playwrightInstaller) {
         throw new Error("PlaywrightInstaller not initialized");
       }
+      if (!args.context.databaseInstaller) {
+        throw new Error("DatabaseInstaller not initialized");
+      }
+      if (!args.context.orpcInstaller) {
+        throw new Error("OrpcInstaller not initialized");
+      }
       await installRealWorldApp({
         nextAppInstaller: args.context.nextAppInstaller,
         designSystemInstaller: args.context.designSystemInstaller,
         playwrightInstaller: args.context.playwrightInstaller,
+        databaseInstaller: args.context.databaseInstaller,
+        orpcInstaller: args.context.orpcInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
