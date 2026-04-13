@@ -16,8 +16,8 @@ export async function SettingsPage(_props: PageProps<"/settings">) {
   }
 
   return (
-    <Container className="w-full" maxWidth="sm">
-      <div className="mt-6 w-full pb-4">
+    <Container className="w-full my-6" maxWidth="sm">
+      <div className="w-full pb-4">
         <div className="pb-2 border-b mb-4">
           <h1 className="text-xl">Your Profile</h1>
         </div>
