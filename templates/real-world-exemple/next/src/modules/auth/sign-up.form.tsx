@@ -50,6 +50,7 @@ export function SignUpForm() {
         setGlobalError(error);
       } else {
         router.push("/");
+        router.refresh();
         toast.success("Your account has been created successfully!");
       }
     },

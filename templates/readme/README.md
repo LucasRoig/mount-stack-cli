@@ -61,10 +61,10 @@ If you are not using SAML authentication you can skip this part
 
 `just build_web-exemple latest`
 
-## Run playwright tests
-
-`pnpm e2e:test`
-
 ## Run dev
 
 `pnpm dev`
+
+## Run playwright tests
+
+`pnpm e2e:test`
