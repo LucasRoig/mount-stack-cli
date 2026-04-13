@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { getAuth } from "@/lib/auth/auth";
+import { Routes } from "@/routes";
 // import { type $ERROR_CODES, signIn, signUp } from "@/lib/auth/auth-client";
 import { SignInForm } from "./sign-in.form";
 
@@ -16,7 +17,7 @@ export async function SigninPage() {
   });
 
   if (session) {
-    return redirect("/");
+    return redirect(Routes.homepage);
   }
   return (
     <Container className="my-6 w-full px-4" maxWidth="sm">

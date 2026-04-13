@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { getAuth } from "@/lib/auth/auth";
 import { SignUpForm } from "@/modules/auth/sign-up.form";
+import { Routes } from "@/routes";
 
 export async function SignUpPage() {
   const session = await getAuth().api.getSession({
@@ -10,7 +11,7 @@ export async function SignUpPage() {
   });
 
   if (session) {
-    return redirect("/");
+    return redirect(Routes.homepage);
   }
   return (
     <Container className="my-6 w-full px-4" maxWidth="sm">

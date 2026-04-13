@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "@/lib/auth/auth-client";
+import { Routes } from "@/routes";
 
 export default function Page() {
   const session = useSession();
@@ -10,7 +11,7 @@ export default function Page() {
     signOut({
       fetchOptions: {
         onSuccess: () => {
-          router.push("/"); // redirect to login page
+          router.push(Routes.homepage); // redirect to login page
         },
       },
     });

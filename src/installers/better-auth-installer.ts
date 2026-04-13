@@ -30,7 +30,7 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
@@ -46,6 +46,21 @@ export class BetterAuthInstaller {
       "3600",
       { schema: EnvSchemas.PositiveInt },
     );
+
+    const routeFile = await args.nextAppInstaller.getRouteFile();
+    routeFile.getVariableStatementOrThrow("Routes")
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+      .addPropertyAssignment({
+        name: "auth",
+        initializer: `{
+          signIn: "/sign-in"
+        }`
+      });
+    routeFile.formatText();
+    await routeFile.save();
+
     const coreSrcTemplatePath = path.resolve(TEMPLATE_ROOT, "better-auth", "next-integration", "core", "src");
     await fs.cp(coreSrcTemplatePath, args.nextAppInstaller.srcPath, { recursive: true });
 

@@ -54,6 +54,8 @@ export class NextAppInstaller {
   public readonly srcPath: string;
   private libPath: string;
   private appRouterDirPath: string;
+  private readonly routesFilePath: string;
+
   private isTailwindInstalled = false;
   private isDockerInstalled = false;
   private isReactQueryInstalled = false;
@@ -87,6 +89,7 @@ export class NextAppInstaller {
     this.envLocalFilePath = resolve(this.nextAppRootPath, ".env.local");
     this.envTsFilePath = resolve(this.srcPath, "env", "env.ts");
     this.i18nFiles.fr = resolve(this.nextAppRootPath, "messages", "fr.json");
+    this.routesFilePath = resolve(this.srcPath, "routes.ts");
     this.logger = args.logger;
   }
 
@@ -136,6 +139,9 @@ export class NextAppInstaller {
 
     const gitignoreFile = resolve(this.nextAppRootPath, ".gitignore");
     await fs.appendFile(gitignoreFile, "!.env.*.sample");
+
+    const routesTemplatePath = resolve(TEMPLATE_ROOT, "next-app", "routes.ts");
+    await fs.copyFile(routesTemplatePath, this.routesFilePath);
 
     await this.addDevDependencyToPackageJson("typescript", Versions.typescript);
     await this.addDevDependencyToPackageJson("@repo/typescript-config", "workspace:*");
@@ -450,5 +456,9 @@ export class NextAppInstaller {
 
     envTsFile.formatText();
     await envTsFile.save();
+  }
+
+  public getRouteFile() {
+    return getSourceFile(this.routesFilePath);
   }
 }

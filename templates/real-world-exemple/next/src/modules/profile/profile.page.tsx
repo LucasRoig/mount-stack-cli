@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { getAuth } from "@/lib/auth/auth";
+import { Routes } from "@/routes";
 
 export async function ProfilePage(props: PageProps<"/profile/[username]">) {
   const { username } = await props.params;
@@ -36,7 +37,7 @@ function ProfilePageHero(props: { username: string; isMe: boolean }) {
         {props.isMe && (
           <div className="text-right">
             <Button variant="secondary" size="xs" asChild>
-              <Link href="/settings">
+              <Link href={Routes.settings} data-testid="profile-page-edit-profile-link">
                 <UserRoundPenIcon />
                 Edit Profile
               </Link>

@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { signIn, signUp, type $ERROR_CODES } from "@/lib/auth/auth-client";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/dist/client/components/navigation";
+import { Routes } from "@/routes";
 
 type ErrorTypes = Partial<Record<keyof typeof $ERROR_CODES, string>>;
 
@@ -54,7 +55,7 @@ function SignInBlock() {
     if (error?.code) {
       alert(getErrorMessage(error.code));
     } else {
-      router.push("/");
+      router.push(Routes.homepage);
     }
   };
   const handleSSOLogin = async (args: {
@@ -64,9 +65,9 @@ function SignInBlock() {
   }) => {
     const { error } = await signIn.sso({
       providerId: args.providerId,
-      callbackURL: "/",
-      errorCallbackURL: "/sign-in",
-      newUserCallbackURL: "/bliblu",
+      callbackURL: Routes.homepage,
+      errorCallbackURL: Routes.auth.signIn,
+      newUserCallbackURL: "/new-user",
       fetchOptions: {
         query: {
           forceLogin: args.forceLogin ? "true" : "false",
@@ -77,7 +78,7 @@ function SignInBlock() {
     if (error?.code) {
       alert(getErrorMessage(error.code));
     } else {
-      router.push("/");
+      router.push(Routes.homepage);
     }
   }
   const handleOIDCLogin = (providerId: string) => handleSSOLogin({ providerId, providerKind: "oidc", forceLogin: true });

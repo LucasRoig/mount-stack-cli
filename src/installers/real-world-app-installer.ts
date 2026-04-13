@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { resolve } from "node:path";
+import ts from "typescript";
 import { TEMPLATE_ROOT } from "../consts";
 import { NextLayoutFile } from "../helpers/next-layout-file";
 import Versions from "../versions.json";
@@ -31,6 +32,32 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await options.nextAppInstaller.addDependencyToPackageJson("@radix-ui/react-slot", Versions["@radix-ui/react-slot"]);
   await options.nextAppInstaller.addDependencyToPackageJson("lucide-react", Versions["lucide-react"]);
 
+  const routeFile = await options.nextAppInstaller.getRouteFile();
+  const routesObject = routeFile
+    .getVariableStatementOrThrow("Routes")
+    .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
+    .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
+    .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
+  routesObject.addPropertyAssignments([
+    {
+      name: "settings",
+      initializer: "\"/settings\"",
+    },
+    {
+      name: "profile",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is part of the string
+      initializer: "(username: string) => `/profile/${username}`",
+    },
+  ]);
+  routesObject.getPropertyOrThrow("auth")
+    .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+    .addPropertyAssignment({
+      name: "signUp",
+      initializer: "\"/auth/sign-up\""
+    });
+  routeFile.formatText();
+  await routeFile.save();
+
   const layoutFile = await NextLayoutFile.fromPath(options.nextAppInstaller.rootLayoutPath);
   layoutFile.addImportDeclaration({
     namedImports: ["Toaster"],
@@ -44,4 +71,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   });
   layoutFile.wrapChildrenWithComponent("<PageLayoutWithHeader>", "</PageLayoutWithHeader>");
   await layoutFile.save();
+
+  // Remove useless page
+  await fs.rmdir(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), { recursive: true });
 }

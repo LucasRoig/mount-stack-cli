@@ -6,8 +6,9 @@ import { toast } from "@lro-ui/sonner";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import z from "zod";
-import { AuthErrorField, type AuthError } from "./auth-error-field";
 import { signIn } from "@/lib/auth/auth-client";
+import { Routes } from "@/routes";
+import { type AuthError, AuthErrorField } from "./auth-error-field";
 
 const signInFormSchema = z.object({
   email: z.email(),
@@ -31,13 +32,13 @@ export function SignInForm() {
       setGlobalError(undefined);
       const { error } = await signIn.email({
         email: value.email,
-        password: value.password
+        password: value.password,
       });
       if (error) {
         console.log(error);
         setGlobalError(error);
       } else {
-        router.push("/");
+        router.push(Routes.homepage);
         router.refresh();
         toast.success("You have signed in successfully!");
       }
@@ -50,7 +51,9 @@ export function SignInForm() {
       <form.FormRoot ref={formRef}>
         <FieldGroup>
           <form.AppField name="email">{(field) => <field.TextField label="Email" />}</form.AppField>
-          <form.AppField name="password">{(field) => <field.TextField label="Password" type="password" />}</form.AppField>
+          <form.AppField name="password">
+            {(field) => <field.TextField label="Password" type="password" />}
+          </form.AppField>
           <AuthErrorField error={globalError} />
           <form.SubmitButton>Sign In</form.SubmitButton>
           <FieldSeparator>Or</FieldSeparator>

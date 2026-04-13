@@ -13,6 +13,7 @@ import { ChevronDownIcon, CircleUserRoundIcon, LogOutIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth/auth-client";
+import { Routes } from "@/routes";
 
 export function UserMenu(props: { username: string; email: string }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function UserMenu(props: { username: string; email: string }) {
 
   const onSignOut = async () => {
     await signOut();
-    router.push("/");
+    router.push(Routes.homepage);
     router.refresh();
   };
 
@@ -55,7 +56,7 @@ export function UserMenu(props: { username: string; email: string }) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <Link href={`/profile/${props.username}`} data-testid="user-menu-profile-link">
+        <Link href={Routes.profile(props.username)} data-testid="user-menu-profile-link">
           <DropdownMenuItem>
             <CircleUserRoundIcon />
             Profile

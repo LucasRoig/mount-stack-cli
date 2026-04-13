@@ -3,6 +3,7 @@
 
 //Pour tester l'erreur: http://localhost:3000/api/auth/callback/local-oidc?error=access_denied
 import Link from "next/link";
+import { Routes } from "@/routes";
 
 function sanitize(input: string): string {
   // Repris directement de la fonction sanitize de better-auth
@@ -33,7 +34,7 @@ export default async function AuthErrorPage(props: PageProps<'/auth/auth-error'>
       <p>Code: {safeCode}</p>
       {safeDescription && <p>Description: {safeDescription}</p>}
       <p>An error occurred during authentication. Please try again.</p>
-      <Link href="/">Go back</Link>
+      <Link href={Routes.homepage}>Go back</Link>
     </div>
   )
 }

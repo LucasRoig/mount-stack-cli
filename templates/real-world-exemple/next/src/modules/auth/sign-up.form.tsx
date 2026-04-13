@@ -7,16 +7,17 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import z from "zod";
 import { signUp } from "@/lib/auth/auth-client";
+import { Routes } from "@/routes";
 import { type AuthError, AuthErrorField } from "./auth-error-field";
 
 //TODO: Make a custom password field with strenght indicator to show to extend the app form declared in the design system with new components.
 
 const signUpFormSchema = z
   .object({
-    username: z.string().min(3),
+    username: z.string().min(3).max(16),
     email: z.email(),
-    password: z.string().min(8),
-    confirmPassword: z.string().min(8),
+    password: z.string().min(8).max(64),
+    confirmPassword: z.string().min(8).max(64),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -49,7 +50,7 @@ export function SignUpForm() {
         console.log(error);
         setGlobalError(error);
       } else {
-        router.push("/");
+        router.push(Routes.homepage);
         router.refresh();
         toast.success("Your account has been created successfully!");
       }
