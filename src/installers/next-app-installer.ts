@@ -358,7 +358,7 @@ export class NextAppInstaller {
     await fs.copyFile(envLocalTemplatePath, this.envSampleFilePath);
     await fs.copyFile(envLocalTemplatePath, this.envLocalFilePath);
 
-    await this.addDevDependencyToPackageJson("zod", Versions.zod);
+    await this.addDependencyToPackageJson("zod", Versions.zod);
 
     const envTsTemplatePath = resolve(TEMPLATE_ROOT, "env", "env.ts");
     await fs.mkdir(path.dirname(this.envTsFilePath), { recursive: true });

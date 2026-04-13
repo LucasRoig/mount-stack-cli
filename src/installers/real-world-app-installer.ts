@@ -21,12 +21,15 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await fs.cp(playwrightTemplateRoot, options.playwrightInstaller.rootPath, { recursive: true });
 
   const submodulePrefix = options.designSystemInstaller.submodulePrefix;
+  await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/avatar`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/button`, "workspace:*");
+  await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/dropdown-menu`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/field`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/form`, "workspace:*");
-  await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/utils`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/sonner`, "workspace:*");
+  await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/utils`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson("@radix-ui/react-slot", Versions["@radix-ui/react-slot"]);
+  await options.nextAppInstaller.addDependencyToPackageJson("lucide-react", Versions["lucide-react"]);
 
   const layoutFile = await NextLayoutFile.fromPath(options.nextAppInstaller.rootLayoutPath);
   layoutFile.addImportDeclaration({
