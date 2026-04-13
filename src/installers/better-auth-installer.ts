@@ -30,7 +30,7 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
@@ -53,7 +53,7 @@ export class BetterAuthInstaller {
       data.authErrors = {
         USER_ALREADY_EXISTS: "Utilisateur déjà enregistré",
         INVALID_EMAIL_OR_PASSWORD: "Email ou mot de passe invalide",
-        USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "Un utilisateur avec cet email existe déjà."
+        USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "Un utilisateur avec cet email existe déjà.",
       };
     });
 

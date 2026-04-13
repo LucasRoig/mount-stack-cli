@@ -44,7 +44,13 @@ export class NextLayoutFile {
       const text = jsxExpression.getText();
       if (text.match(/.*\{\s*children\s*\}.*/)) {
         const parent = jsxExpression.getParent() as JsxElement;
-        return { element: parent, currentBody: parent.getJsxChildren().map((c) => c.getText()).join("\n") };
+        return {
+          element: parent,
+          currentBody: parent
+            .getJsxChildren()
+            .map((c) => c.getText())
+            .join("\n"),
+        };
       }
     }
     throw new Error("Error: Children JSX element not found in layout.tsx");
@@ -58,7 +64,6 @@ export class NextLayoutFile {
   public addComponentBeforeChildren(component: `<${string}/>`) {
     const { element, currentBody } = this.getChildrenJsxElement();
     element.setBodyText(`${component}${currentBody}`);
-
   }
 
   public async save() {
