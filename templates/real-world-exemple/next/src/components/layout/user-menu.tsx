@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@lro-ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@lro-ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@lro-ui/dropdown-menu";
-import { ChevronDownIcon, LogOutIcon } from "lucide-react";
+import { ChevronDownIcon, CircleUserRoundIcon, LogOutIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth/auth-client";
 
@@ -31,6 +32,7 @@ export function UserMenu(props: { username: string; email: string }) {
           data-testid="user-menu-trigger"
         >
           <Avatar className="size-8">
+            <AvatarImage src="/default-avatar.svg" alt="user-avatar" />
             <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
               {initials}
             </AvatarFallback>
@@ -43,6 +45,7 @@ export function UserMenu(props: { username: string; email: string }) {
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
             <Avatar className="h-8 w-8 rounded-lg">
+              <AvatarImage src="/default-avatar.svg" alt="user-avatar" />
               <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
@@ -51,6 +54,13 @@ export function UserMenu(props: { username: string; email: string }) {
             </div>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <Link href={`/profile/${props.username}`} data-testid="user-menu-profile-link">
+          <DropdownMenuItem>
+            <CircleUserRoundIcon />
+            Profile
+          </DropdownMenuItem>
+        </Link>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSignOut} data-testid="user-menu-sign-out-button">
           <LogOutIcon />
