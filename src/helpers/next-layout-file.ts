@@ -34,7 +34,7 @@ export class NextLayoutFile {
     layoutFunction.getFirstChildByKindOrThrow(ts.SyntaxKind.Block).insertVariableStatement(index, variableDeclaration);
   }
 
-  public wrapChildrenWithComponent(openingTag: `<${string}>`, closingTag: `</${string}>`) {
+  private getChildrenJsxElement() {
     const layoutFunction = this.getLayoutFunction();
     const jsxExpressions = layoutFunction
       .getBodyOrThrow()
@@ -44,10 +44,20 @@ export class NextLayoutFile {
       const text = jsxExpression.getText();
       if (text.match(/.*\{\s*children\s*\}.*/)) {
         const parent = jsxExpression.getParent() as JsxElement;
-        parent.setBodyText(`${openingTag}{children}${closingTag}`);
-        break;
+        return parent;
       }
     }
+    throw new Error("Error: Children JSX element not found in layout.tsx");
+  }
+
+  public wrapChildrenWithComponent(openingTag: `<${string}>`, closingTag: `</${string}>`) {
+    const childrenJsxElement = this.getChildrenJsxElement();
+    childrenJsxElement.setBodyText(`${openingTag}{children}${closingTag}`);
+  }
+
+  public addComponentBeforeChildren(component: `<${string}/>`) {
+    const childrenJsxElement = this.getChildrenJsxElement();
+    childrenJsxElement.setBodyText(`${component}{children}`);
   }
 
   public async save() {

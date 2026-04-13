@@ -25,9 +25,16 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/field`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/form`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/utils`, "workspace:*");
+  await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/sonner`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson("@radix-ui/react-slot", Versions["@radix-ui/react-slot"]);
 
   const layoutFile = await NextLayoutFile.fromPath(options.nextAppInstaller.rootLayoutPath);
+  layoutFile.addImportDeclaration({
+    namedImports: ["Toaster"],
+    moduleSpecifier: `${submodulePrefix}/sonner`,
+  });
+  layoutFile.addComponentBeforeChildren("<Toaster/>");
+
   layoutFile.addImportDeclaration({
     namedImports: ["PageLayoutWithHeader"],
     moduleSpecifier: "@/components/layout/page-layout-with-header",

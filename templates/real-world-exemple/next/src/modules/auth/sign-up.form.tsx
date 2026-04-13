@@ -2,6 +2,8 @@
 import { Button } from "@lro-ui/button";
 import { FieldGroup, FieldSeparator } from "@lro-ui/field";
 import { useAppForm } from "@lro-ui/form";
+import { toast } from "@lro-ui/sonner";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import z from "zod";
 import { signUp } from "@/lib/auth/auth-client";
@@ -30,6 +32,7 @@ const formDefaultValues = {
 
 export function SignUpForm() {
   const [globalError, setGlobalError] = useState<AuthError>();
+  const router = useRouter();
   const form = useAppForm({
     defaultValues: formDefaultValues,
     validators: {
@@ -41,11 +44,13 @@ export function SignUpForm() {
         email: value.email,
         password: value.password,
         name: value.username,
-        callbackURL: "/",
       });
       if (error) {
         console.log(error);
         setGlobalError(error);
+      } else {
+        router.push("/");
+        toast.success("Your account has been created successfully!");
       }
     },
   });
@@ -55,16 +60,30 @@ export function SignUpForm() {
     <form.AppForm>
       <form.FormRoot ref={formRef}>
         <FieldGroup>
-          <form.AppField name="username">{(field) => <field.TextField label="Username" autoComplete="username" />}</form.AppField>
-          <form.AppField name="email">{(field) => <field.TextField label="Email" autoComplete="email" />}</form.AppField>
+          <form.AppField name="username">
+            {(field) => <field.TextField label="Username" autoComplete="username" />}
+          </form.AppField>
+          <form.AppField name="email">
+            {(field) => <field.TextField label="Email" autoComplete="email" />}
+          </form.AppField>
           <form.AppField name="password">
             {(field) => (
-              <field.TextField type="password" label="Password" description="Must be at least 8 characters long." autoComplete="new-password" />
+              <field.TextField
+                type="password"
+                label="Password"
+                description="Must be at least 8 characters long."
+                autoComplete="new-password"
+              />
             )}
           </form.AppField>
           <form.AppField name="confirmPassword">
             {(field) => (
-              <field.TextField type="password" label="Confirm Password" description="Please confirm your password." autoComplete="new-password" />
+              <field.TextField
+                type="password"
+                label="Confirm Password"
+                description="Please confirm your password."
+                autoComplete="new-password"
+              />
             )}
           </form.AppField>
           <AuthErrorField error={globalError} />
