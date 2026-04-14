@@ -1,6 +1,9 @@
+import { getLogger } from "@logtape/logtape";
 import { ORPCError, os } from "@orpc/server";
-import type { AppDatabase } from "@repo/database";
+import type { AppDatabase, drizzleSchema } from "@repo/database";
 import { defineAbilityFor } from "@repo/rbac";
+
+const authMiddlewareLogger = getLogger(["api", "orpc", "auth-middleware"]);
 
 export type OrpcContext = {
   database: AppDatabase;
@@ -9,7 +12,7 @@ export type OrpcContext = {
     user: {
       id: string;
       email: string;
-      role: string;
+      role: (typeof drizzleSchema.users.role.enumValues)[number];
     };
   }
   | undefined;
@@ -24,18 +27,22 @@ const authMiddleware = o.middleware(({ context, next }) => {
     });
   }
 
-  const { appAbility, databaseAbility } = defineAbilityFor({
-    type: context.session.user.role, // role
-    id: context.session.user.id,
-  });
-
-  return next({
-    context: {
-      session: context.session,
-      appAbility,
-      databaseAbility,
-    },
-  });
+  try {
+    const { appAbility, databaseAbility } = defineAbilityFor({
+      role: context.session.user.role, // role
+      id: context.session.user.id,
+    });
+    return next({
+      context: {
+        session: context.session,
+        appAbility,
+        databaseAbility,
+      },
+    });
+  } catch (err) {
+    authMiddlewareLogger.error("Error in auth middleware {error}", { error: err });
+    throw new ORPCError("INTERNAL_SERVER_ERROR");
+  }
 });
 
 const privateProcedure = o.use(authMiddleware);

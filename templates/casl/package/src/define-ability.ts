@@ -8,10 +8,10 @@ export type Actions = "create" | "read" | "update" | "delete";
 
 export type AppAbility = PureAbility<[Actions, Subjects], MatchConditions>;
 
-type Roles = "user" | "admin";
+type Roles = "USER" | "ADMIN";
 
 type User = {
-  type: string;
+  role: Roles;
   id: string;
 };
 
@@ -23,11 +23,11 @@ type DefinePermissions = (
 
 const rolePermissions = {
   // By default everything is forbidden
-  user: (user, { can }, dbAbilityBuilder) => {
+  USER: (user, { can }, dbAbilityBuilder) => {
     can(["read", "update"], "User", (u) => u.id === user.id);
     dbAbilityBuilder.can(["read", "update"], "User", eq(drizzleSchema.users.id, user.id));
   },
-  admin: (_user, { can }, dbAbilityBuilder) => {
+  ADMIN: (_user, { can }, dbAbilityBuilder) => {
     can(["read", "create", "update", "delete"], "User");
     dbAbilityBuilder.can(["read", "create", "update", "delete"], "User");
   },
@@ -38,8 +38,7 @@ const lambdaMatcher = (matchConditions: MatchConditions) => matchConditions;
 export function defineAbilityFor(user: User) {
   const builder = new AbilityBuilder<AppAbility>(PureAbility);
   const databaseAbilityBuilder = new DatabaseAbilityBuilder<Actions, DatabaseSubjects>();
-  //TODO: get role from user
-  const role = user.type as Roles;
+  const role = user.role;
   if (typeof rolePermissions[role] === "function") {
     rolePermissions[role](user, builder, databaseAbilityBuilder);
   } else {
