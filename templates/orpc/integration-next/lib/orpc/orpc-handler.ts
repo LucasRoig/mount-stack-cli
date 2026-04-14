@@ -1,7 +1,7 @@
+import "server-only";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { appRouter, errorClientInterceptor } from "@repo/api";
-import "server-only";
 import { getORPCContext } from "./orpc-context";
 
 const orpcHandler = new RPCHandler(appRouter, {

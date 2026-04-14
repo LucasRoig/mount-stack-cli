@@ -1,7 +1,12 @@
+import { isDefinedError } from "@orpc/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { match } from "ts-pattern";
+import { NotFound } from "@/components/error-pages/not-found";
+import { UnexpectedError } from "@/components/error-pages/unexpected-error";
 import { Container } from "@/components/layout/container";
 import { getAuth } from "@/lib/auth/auth";
+import { getServerSideORPCClient } from "@/lib/orpc/orpc-server-side-client";
 import { Routes } from "@/routes";
 import { PasswordForm } from "./password.form";
 import { ProfileForm } from "./profile.form";
@@ -15,6 +20,20 @@ export async function SettingsPage(_props: PageProps<"/settings">) {
     redirect(Routes.auth.signIn);
   }
 
+  const [error, profile] = await (await getServerSideORPCClient()).getUserProfile({
+    username: session.user.name,
+  });
+
+  if (error) {
+    if (isDefinedError(error)) {
+      return match(error)
+        .with({ code: "NOT_FOUND" }, () => <NotFound />)
+        .exhaustive();
+    } else {
+      return <UnexpectedError />;
+    }
+  }
+
   return (
     <Container className="w-full my-6" maxWidth="sm">
       <div className="w-full pb-4">
@@ -23,9 +42,9 @@ export async function SettingsPage(_props: PageProps<"/settings">) {
         </div>
         <ProfileForm
           defaultValues={{
-            username: session?.user.name,
-            bio: "",
-            pictureUrl: session?.user.image ?? undefined,
+            username: session.user.name,
+            bio: profile.bio ?? "",
+            pictureUrl: session.user.image ?? undefined,
           }}
         />
       </div>

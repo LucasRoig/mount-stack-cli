@@ -43,6 +43,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await options.nextAppInstaller.addDependencyToPackageJson(`${submodulePrefix}/utils`, "workspace:*");
   await options.nextAppInstaller.addDependencyToPackageJson("@radix-ui/react-slot", Versions["@radix-ui/react-slot"]);
   await options.nextAppInstaller.addDependencyToPackageJson("lucide-react", Versions["lucide-react"]);
+  await options.nextAppInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
 
   const routeFile = await options.nextAppInstaller.getRouteFile();
   const routesObject = routeFile
