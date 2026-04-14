@@ -1,12 +1,12 @@
 import { AbilityBuilder, type MatchConditions, PureAbility } from "@casl/ability";
+import { drizzleSchema } from "@repo/database";
+import { eq } from "drizzle-orm";
 import { DatabaseAbilityBuilder } from "./core/database-ability";
 import type { DatabaseSubjects, Subjects } from "./subjects";
-import { eq } from "drizzle-orm";
-import { drizzleSchema } from "@repo/database";
 
 export type Actions = "create" | "read" | "update" | "delete";
 
-type AppAbility = PureAbility<[Actions, Subjects], MatchConditions>;
+export type AppAbility = PureAbility<[Actions, Subjects], MatchConditions>;
 
 type Roles = "user" | "admin";
 

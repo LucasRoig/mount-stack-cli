@@ -15,6 +15,20 @@ type OrpcInstallerCreateArgs = {
 export class OrpcInstaller {
   private package: TurboPackageInstaller | undefined;
 
+  get packageJsonPath() {
+    if (!this.package) {
+      throw new Error("Package installer not initialized");
+    }
+    return this.package.packageJsonPath;
+  }
+
+  get tsconfigBuildTypesPath() {
+    if (!this.package) {
+      throw new Error("Package installer not initialized");
+    }
+    return this.package.tsconfigBuildTypesPath;
+  }
+
   public static async create(args: OrpcInstallerCreateArgs): Promise<OrpcInstaller> {
     const installer = new OrpcInstaller(args);
     await installer.init(args);
@@ -59,6 +73,7 @@ export class OrpcInstaller {
     }
     const template = path.resolve(TEMPLATE_ROOT, "orpc", "with-auth");
     await fs.cp(template, this.package.path, { recursive: true });
+    await this.addDependencyToPackageJson("@repo/rbac", "workspace:*");
   }
 
   public getContextProviderFile() {

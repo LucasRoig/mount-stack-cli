@@ -17,6 +17,7 @@ export class TurboPackageInstaller {
   public readonly packageJsonPath: string;
   public readonly relativePathFromMonorepoRoot: string;
   public readonly packageName: string;
+  public readonly tsconfigBuildTypesPath: string;
 
   public static async create(args: TurboPackageInstallerCreateArgs) {
     const installer = new TurboPackageInstaller(args);
@@ -29,6 +30,7 @@ export class TurboPackageInstaller {
     this.packageJsonPath = resolve(this.path, "package.json");
     this.relativePathFromMonorepoRoot = relative(args.monoRepoInstaller.rootPath, this.path);
     this.packageName = `@repo/${args.name}`;
+    this.tsconfigBuildTypesPath = resolve(this.path, "tsconfig.build-types.json");
   }
 
   private async init(args: TurboPackageInstallerCreateArgs) {

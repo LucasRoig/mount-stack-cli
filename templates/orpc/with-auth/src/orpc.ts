@@ -1,16 +1,19 @@
 import { ORPCError, os } from "@orpc/server";
 import type { AppDatabase } from "@repo/database";
+import { defineAbilityFor } from "@repo/rbac";
 
 export type OrpcContext = {
   database: AppDatabase;
-  session: {
+  session:
+  | {
     user: {
       id: string;
       email: string;
-    }
-  } | undefined;
+      role: string;
+    };
+  }
+  | undefined;
 };
-
 
 export const o = os.$context<OrpcContext>();
 
@@ -21,9 +24,16 @@ const authMiddleware = o.middleware(({ context, next }) => {
     });
   }
 
+  const { appAbility, databaseAbility } = defineAbilityFor({
+    type: context.session.user.role, // role
+    id: context.session.user.id,
+  });
+
   return next({
     context: {
       session: context.session,
+      appAbility,
+      databaseAbility,
     },
   });
 });
@@ -34,4 +44,4 @@ const publicProcedure = o;
 export const procedures = {
   private: privateProcedure,
   public: publicProcedure,
-}
+};

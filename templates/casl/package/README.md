@@ -25,13 +25,14 @@ It defines **who can do what** in your application through a dual-ability system
 ```ts
 import { ForbiddenError } from "@repo/rbac";
 import { defineAbilityFor } from "@repo/rbac";
+import { subject } from "@repo/rbac";
 
 const { appAbility, databaseAbility } = defineAbilityFor({
   type: "admin", // role
   id: "user-123",
 });
 // Throws if the user is not allowed
-ForbiddenError.from(appAbility).throwUnlessCan("update", userSubject);
+ForbiddenError.from(appAbility).throwUnlessCan("update", subject("User", userSubject));
 
 // Or check manually
 if (appAbility.can("read", "User")) {

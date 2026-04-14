@@ -1,6 +1,6 @@
 import { createOrpcHandleRequest } from "@/lib/orpc/orpc-handler";
 
-const handleRequest = createOrpcHandleRequest("/rpc");
+const handleRequest = createOrpcHandleRequest("/api/rpc");
 
 export const HEAD = handleRequest;
 export const GET = handleRequest;

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import ts from "typescript";
 import { TEMPLATE_ROOT } from "../consts";
+import { updateJsonFile } from "../helpers/json-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
 import Versions from "../versions.json";
 import type { DatabaseInstaller } from "./database-installer";
@@ -90,5 +91,23 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await fs.rmdir(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), { recursive: true });
 
   //API
-  options.orpcInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
+  await options.orpcInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
+  await options.orpcInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+  await updateJsonFile(options.orpcInstaller.packageJsonPath, (json) => {
+    if (!json.exports) {
+      json.exports = {};
+    }
+    json.exports["./schemas"] = {
+      "vs-code-lsp": {
+        types: "./dist/schemas/index.d.ts",
+      },
+      default: "./src/schemas/index.ts",
+    };
+  });
+  await updateJsonFile(options.orpcInstaller.tsconfigBuildTypesPath, (json) => {
+    if (!json.include) {
+      json.include = [];
+    }
+    json.include.push("src/schemas/index.ts");
+  });
 }
