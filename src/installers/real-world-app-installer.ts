@@ -62,6 +62,10 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is part of the string
       initializer: "(username: string) => `/profile/${username}`",
     },
+    {
+      name: "editor",
+      initializer: '"/editor"',
+    },
   ]);
   routesObject
     .getPropertyOrThrow("auth")

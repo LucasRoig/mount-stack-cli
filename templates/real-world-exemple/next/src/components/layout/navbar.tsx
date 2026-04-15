@@ -1,4 +1,5 @@
 import { Button } from "@lro-ui/button";
+import { SquarePenIcon } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { getAuth } from "@/lib/auth/auth";
@@ -38,7 +39,15 @@ export async function Navbar() {
 
 function AuthenticatedLinks(props: { username: string; email: string }) {
   return (
-    <UserMenu username={props.username} email={props.email} />
+    <>
+      <Button variant="secondary" asChild>
+        <Link href={Routes.editor} data-testid="header-new-article-link">
+          <SquarePenIcon />
+          New article
+        </Link>
+      </Button>
+      <UserMenu username={props.username} email={props.email} />
+    </>
   );
 }
 
