@@ -30,7 +30,7 @@ export class BetterAuthInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: BetterAuthInstallerCreateArgs) {
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
@@ -48,15 +48,16 @@ export class BetterAuthInstaller {
     );
 
     const routeFile = await args.nextAppInstaller.getRouteFile();
-    routeFile.getVariableStatementOrThrow("Routes")
+    routeFile
+      .getVariableStatementOrThrow("Routes")
       .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList)
       .getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclaration)
       .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
       .addPropertyAssignment({
         name: "auth",
         initializer: `{
-          signIn: "/sign-in"
-        }`
+          signIn: "/auth/sign-in"
+        }`,
       });
     routeFile.formatText();
     await routeFile.save();
