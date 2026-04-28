@@ -1,0 +1,66 @@
+import { AbilityBuilder, type MatchConditions, PureAbility } from "@casl/ability";
+import { drizzleSchema } from "@repo/database";
+import { eq } from "drizzle-orm";
+import { DatabaseAbilityBuilder } from "./core/database-ability";
+import type { DatabaseSubjects, Subjects } from "./subjects";
+
+export type Actions = "create" | "read" | "update" | "delete";
+
+export type AppAbility = PureAbility<[Actions, Subjects], MatchConditions>;
+
+type Roles = "USER" | "ADMIN";
+
+type User = {
+  role: Roles;
+  id: string;
+};
+
+type DefinePermissions = (
+  user: User,
+  builder: AbilityBuilder<AppAbility>,
+  databaseAbilityBuilder: DatabaseAbilityBuilder<Actions, DatabaseSubjects>,
+) => void;
+
+const rolePermissions = {
+  // By default everything is forbidden
+  USER: (user, { can }, dbAbilityBuilder) => {
+    can(["read", "update"], "User", (u) => u.id === user.id);
+    dbAbilityBuilder.can(["read", "update"], "User", eq(drizzleSchema.users.id, user.id));
+
+    can(["read"], "Article");
+    dbAbilityBuilder.can(["read"], "Article");
+    can(["create", "update", "delete"], "Article", (article) => article.authorId === user.id);
+    dbAbilityBuilder.can(["create", "update", "delete"], "Article", eq(drizzleSchema.articles.authorId, user.id));
+
+    can(["read", "create"], "Tag");
+    dbAbilityBuilder.can(["read", "create"], "Tag");
+  },
+  ADMIN: (_user, { can }, dbAbilityBuilder) => {
+    can(["read", "create", "update", "delete"], "User");
+    dbAbilityBuilder.can(["read", "create", "update", "delete"], "User");
+
+    can(["read", "create", "update", "delete"], "Article");
+    dbAbilityBuilder.can(["read", "create", "update", "delete"], "Article");
+
+    can(["read", "create", "update", "delete"], "Tag");
+    dbAbilityBuilder.can(["read", "create", "update", "delete"], "Tag");
+  },
+} satisfies Record<Roles, DefinePermissions>;
+
+const lambdaMatcher = (matchConditions: MatchConditions) => matchConditions;
+
+export function defineAbilityFor(user: User) {
+  const builder = new AbilityBuilder<AppAbility>(PureAbility);
+  const databaseAbilityBuilder = new DatabaseAbilityBuilder<Actions, DatabaseSubjects>();
+  const role = user.role;
+  if (typeof rolePermissions[role] === "function") {
+    rolePermissions[role](user, builder, databaseAbilityBuilder);
+  } else {
+    throw new Error(`Trying to use unknown role "${role}"`);
+  }
+
+  return {
+    appAbility: builder.build({ conditionsMatcher: lambdaMatcher }),
+    databaseAbility: databaseAbilityBuilder.build(),
+  };
+}

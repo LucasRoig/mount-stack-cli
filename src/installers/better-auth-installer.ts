@@ -24,6 +24,8 @@ type BetterAuthInstallerCreateArgs = {
   useDatabase: boolean;
 };
 export class BetterAuthInstaller {
+  public caslInstaller: CaslInstaller | undefined;
+
   public static async create(args: BetterAuthInstallerCreateArgs): Promise<BetterAuthInstaller> {
     const installer = new BetterAuthInstaller();
     await installer.init(args);
@@ -227,7 +229,7 @@ export class BetterAuthInstaller {
       }
 
       await prismaSchema.save();
-      await CaslInstaller.create({
+      this.caslInstaller = await CaslInstaller.create({
         monoRepoInstaller: args.monoRepoInstaller,
       });
     }

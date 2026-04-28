@@ -18,7 +18,7 @@ export class CaslInstaller {
     return installer;
   }
 
-  private constructor() { }
+  private constructor() {}
 
   private async init(args: CaslInstallerCreateArgs) {
     this.package = await TurboPackageInstaller.create({
@@ -35,8 +35,14 @@ export class CaslInstaller {
     await this.package.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
     await this.package.addDependencyToPackageJson("neverthrow", Versions.neverthrow);
 
-
     const templatePath = path.resolve(TEMPLATE_ROOT, "casl", "package");
     await fs.cp(templatePath, this.package.path, { recursive: true });
+  }
+
+  public getRootPath() {
+    if (!this.package) {
+      throw new Error("Package installer not initialized");
+    }
+    return this.package.path;
   }
 }

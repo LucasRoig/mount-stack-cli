@@ -32,13 +32,14 @@ type Context = {
   playwrightInstaller: PlaywrightInstaller | undefined;
   dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
-  | {
-    enabled: true;
-    providers: BetterAuthProviders[];
-    useDatabase: boolean;
-  }
-  | undefined;
+    | {
+        enabled: true;
+        providers: BetterAuthProviders[];
+        useDatabase: boolean;
+      }
+    | undefined;
   designSystemInstaller: DesignSystemInstaller | undefined;
+  betterAuthInstaller: BetterAuthInstaller | undefined;
 };
 
 async function main() {
@@ -79,6 +80,7 @@ async function main() {
     dockerComposeInstaller: undefined,
     designSystemInstaller: undefined,
     playwrightInstaller: undefined,
+    betterAuthInstaller: undefined,
   };
 
   const shouldSetupPlaywright = await confirm({
@@ -127,9 +129,9 @@ async function main() {
   const shouldInstallRealWorldApp =
     setupDesignSystem && shouldSetupPlaywright
       ? await confirm({
-        message: "Do you want to setup the real-world app exemple in the Next.js app ?",
-        initialValue: true,
-      })
+          message: "Do you want to setup the real-world app exemple in the Next.js app ?",
+          initialValue: true,
+        })
       : false;
 
   const setupTasks: TaskWithLogDefinition[] = [];
@@ -620,7 +622,7 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
         throw new Error("DockerComposeInstaller not initialized");
       }
 
-      await BetterAuthInstaller.create({
+      args.context.betterAuthInstaller = await BetterAuthInstaller.create({
         nextAppInstaller: args.context.nextAppInstaller,
         providers: args.context.betterAuthConfig.providers,
         useDatabase: args.context.betterAuthConfig.useDatabase,
@@ -794,12 +796,16 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
       if (!args.context.orpcInstaller) {
         throw new Error("OrpcInstaller not initialized");
       }
+      if (!args.context.betterAuthInstaller) {
+        throw new Error("BetterAuthInstaller not initialized");
+      }
       await installRealWorldApp({
         nextAppInstaller: args.context.nextAppInstaller,
         designSystemInstaller: args.context.designSystemInstaller,
         playwrightInstaller: args.context.playwrightInstaller,
         databaseInstaller: args.context.databaseInstaller,
         orpcInstaller: args.context.orpcInstaller,
+        betterAuthInstaller: args.context.betterAuthInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
