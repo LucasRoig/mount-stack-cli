@@ -6,6 +6,7 @@ import z from "zod";
 import { DbUtils } from "../../@utils/database-utils";
 import { ResultUtils } from "../../@utils/result-utils";
 import { procedures } from "../../orpc";
+import { PUBLIC_USER_FIELDS_BOOLEAN } from "../../user-model";
 
 const logger = getLogger(["api", "get-user-profile"]);
 
@@ -38,12 +39,13 @@ export const GetUserProfileProcedure = procedures.public
   });
 
 class GetUserProfileUseCase {
-  constructor(private db: AppDatabase) { }
+  constructor(private db: AppDatabase) {}
   public execute(input: InputRequest) {
     return DbUtils.executeAndExpectDefined(
       () =>
         this.db.query.users.findFirst({
           where: (users, { eq }) => eq(users.name, input.username),
+          columns: PUBLIC_USER_FIELDS_BOOLEAN,
         }),
       "USER_NOT_FOUND",
     );
