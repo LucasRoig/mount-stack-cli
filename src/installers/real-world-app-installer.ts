@@ -8,9 +8,11 @@ import Versions from "../versions.json";
 import type { BetterAuthInstaller } from "./better-auth-installer";
 import type { DatabaseInstaller } from "./database-installer";
 import type { DesignSystemInstaller } from "./design-system-installer";
+import type { MonoRepoInstaller } from "./mono-repo-installer";
 import type { NextAppInstaller } from "./next-app-installer";
 import type { OrpcInstaller } from "./orpc-installer";
 import type { PlaywrightInstaller } from "./playwright-installer";
+import { TurboPackageInstaller } from "./turbo-package-installer";
 
 type InstallRealWorldAppOptions = {
   nextAppInstaller: NextAppInstaller;
@@ -19,6 +21,7 @@ type InstallRealWorldAppOptions = {
   orpcInstaller: OrpcInstaller;
   databaseInstaller: DatabaseInstaller;
   betterAuthInstaller: BetterAuthInstaller;
+  monoRepoInstaller: MonoRepoInstaller;
 };
 
 export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
@@ -167,4 +170,70 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
     }
     json.include.push("src/schemas/index.ts");
   });
+
+  //Setup Worker Thread
+  const workerThreadPackage = await TurboPackageInstaller.create({
+    name: "worker-thread",
+    subPath: "worker-thread",
+    packageKind: "PACKAGE_WITH_BUILD",
+    monoRepoInstaller: options.monoRepoInstaller,
+  });
+  await workerThreadPackage.addDependencyToPackageJson("@repo/database", "workspace:*");
+  await workerThreadPackage.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+  await workerThreadPackage.addDependencyToPackageJson("pg", Versions.pg);
+  await workerThreadPackage.addDependencyToPackageJson("tinypool", Versions.tinypool);
+  await workerThreadPackage.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
+  await workerThreadPackage.addDevDependencyToPackageJson("tsup", Versions.tsup);
+  await workerThreadPackage.addDevDependencyToPackageJson("typescript", Versions.typescript);
+  await workerThreadPackage.addScriptToPackageJson("dev", "tsc -p tsconfig.build-types.json --watch & tsup --watch");
+  await workerThreadPackage.addScriptToPackageJson("build", "tsc -p tsconfig.build-types.json && tsup");
+  await updateJsonFile(workerThreadPackage.packageJsonPath, (json) => {
+    json.exports = json.exports ?? {};
+    json.exports["."] = json.exports["."] ?? {};
+    json.exports["."].default = "./dist/index.js";
+    json.exports["."]["vs-code-lsp"] = json.exports["."]["vs-code-lsp"] ?? {};
+    json.exports["."]["vs-code-lsp"].types = "./dist/index.d.ts";
+  });
+  await updateJsonFile(workerThreadPackage.tsconfigBuildTypesPath, (json) => {
+    json.compilerOptions = json.compilerOptions ?? {};
+    json.compilerOptions.rootDir = "./src";
+  });
+  await updateJsonFile(options.monoRepoInstaller.rootPackageJsonPath, (json) => {
+    json.scripts = json.scripts ?? {};
+    const currentDevCommand = json.scripts.dev;
+    if (!currentDevCommand || typeof currentDevCommand !== "string") {
+      throw new Error("Existing dev command must be a string");
+    }
+    json.scripts.dev = `${currentDevCommand} --filter=@repo/worker-thread`;
+  });
+  const workerThreadTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "worker-thread");
+  await fs.cp(workerThreadTemplateRoot, workerThreadPackage.path, { recursive: true });
+
+  await options.nextAppInstaller.addDependencyToPackageJson("@repo/worker-thread", "workspace:*");
+  await options.orpcInstaller.addDependencyToPackageJson("@repo/worker-thread", "workspace:*");
+
+  const nextConfigFile = await options.nextAppInstaller.getNextConfigFile();
+  nextConfigFile.getNextConfigObject().addPropertyAssignment({
+    name: "serverExternalPackages",
+    initializer: `["@repo/worker-thread", "tinypool"]`,
+  });
+  await nextConfigFile.save();
+
+  const nextInstrumentationFile = await options.nextAppInstaller.getNextInstrumentationFile();
+  nextInstrumentationFile.makeRegisterFunctionAsync();
+  nextInstrumentationFile.addStatementsToRegisterFunction([
+    `
+    if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { destroyWorkerPool } = await import("@repo/worker-thread");
+
+    const shutdown = async () => {
+      await destroyWorkerPool();
+      process.exit(0);
+    };
+
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+  }`,
+  ]);
+  await nextInstrumentationFile.save();
 }

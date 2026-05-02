@@ -39,6 +39,8 @@
   "lucide-react": "^1.8.0",
   "ts-pattern": "^5.9.0",
   "dotenv": "^17.4.1",
+  "tinypool": "^1.0.2",
+  "tsup": "^8.4.0",
   "pnpm": "10.33.0",
   "keycloak-docker-image": "quay.io/keycloak/keycloak:26.5"
 }

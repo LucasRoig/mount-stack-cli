@@ -298,6 +298,13 @@ function initTurboRepo(args: { path: string; appName: string; context: Context }
 
         pkg.packageManager = `pnpm@${Versions.pnpm}`;
       });
+      await updateJsonFile(resolve(args.path, "turbo.json"), (json) => {
+        const buildOutputs = json.tasks?.build?.outputs;
+        if (!Array.isArray(buildOutputs) || typeof buildOutputs[0] !== "string") {
+          throw new Error("Unexpected turbo.json format: build outputs not found or invalid");
+        }
+        buildOutputs.push("dist/**");
+      });
       return { success: true, message: "Turbo repo initialized" };
     } catch (err) {
       return { success: false, message: `Turbo repo initialization failed: ${err}` };
@@ -799,7 +806,11 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
       if (!args.context.betterAuthInstaller) {
         throw new Error("BetterAuthInstaller not initialized");
       }
+      if (!args.context.monoRepoInstaller) {
+        throw new Error("MonoRepoInstaller not initialized");
+      }
       await installRealWorldApp({
+        monoRepoInstaller: args.context.monoRepoInstaller,
         nextAppInstaller: args.context.nextAppInstaller,
         designSystemInstaller: args.context.designSystemInstaller,
         playwrightInstaller: args.context.playwrightInstaller,

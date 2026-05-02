@@ -18,6 +18,10 @@ export class NextInstrumentationFile {
     return this.file.getFunctionOrThrow("register").getFirstChildByKindOrThrow(ts.SyntaxKind.Block);
   }
 
+  public makeRegisterFunctionAsync() {
+    this.getRegisterFunction().getParentIfKindOrThrow(ts.SyntaxKind.FunctionDeclaration).setIsAsync(true);
+  }
+
   public addImportDeclaration(importDeclaration: Parameters<SourceFile["addImportDeclaration"]>[0]) {
     this.file.addImportDeclaration(importDeclaration);
   }

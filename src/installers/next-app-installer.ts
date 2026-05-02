@@ -4,6 +4,7 @@ import { updatePackage } from "pkg-types";
 import { ts, VariableDeclarationKind } from "ts-morph";
 import { match } from "ts-pattern";
 import { TEMPLATE_ROOT } from "../consts";
+import { NextConfigFile } from "../helpers/next-config-file";
 import { NextInstrumentationFile } from "../helpers/next-instrumentation-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
 import { runProcess } from "../helpers/run-process";
@@ -195,6 +196,10 @@ export class NextAppInstaller {
     this.isTailwindInstalled = true;
   }
 
+  public getNextConfigFile() {
+    return NextConfigFile.fromPath(this.nextConfigPath);
+  }
+
   public async addDocker() {
     if (this.isDockerInstalled) {
       throw new Error("Docker is already installed");
@@ -204,14 +209,13 @@ export class NextAppInstaller {
     await fs.copyFile(dockerfileTemplatePath, destDockerfilePath);
     await replaceTextInFile(destDockerfilePath, "ARG APP_NAME=web", `ARG APP_NAME=${this.appName}`);
 
-    const nextConfigFile = await getSourceFile(this.nextConfigPath);
+    const nextConfigFile = await this.getNextConfigFile();
     nextConfigFile.addImportDeclaration({
       moduleSpecifier: "node:path",
       defaultImport: "path",
     });
-    const nextConfigObject = nextConfigFile
-      .getVariableDeclarationOrThrow("nextConfig")
-      .getFirstChildByKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression);
+    const nextConfigObject = nextConfigFile.getNextConfigObject();
+
     nextConfigObject.addPropertyAssignment({
       name: "output",
       initializer: `"standalone"`,
@@ -231,7 +235,7 @@ export class NextAppInstaller {
     justfileContent += `@build_${this.appName} version:\n`;
     justfileContent += `\tdocker build -t {{docker_${this.appName}_name}}:{{version}} -f apps/${this.appName}/Dockerfile .\n\n`;
     justfileContent += `@run_${this.appName} version:\n`;
-    justfileContent += `\tdocker run -p 3000:3000 {{docker_${this.appName}_name}}:{{version}}\n\n`;
+    justfileContent += `\tdocker run -p 3000:3000 --env-file ./apps/${this.appName}/.env.local -e PG_HOST=172.17.0.1 {{docker_${this.appName}_name}}:{{version}}\n\n`;
     await this.monoRepoInstaller.appendToJustfile(justfileContent);
 
     this.isDockerInstalled = true;
@@ -311,6 +315,10 @@ export class NextAppInstaller {
     this.isI18nInstalled = true;
   }
 
+  public getNextInstrumentationFile() {
+    return NextInstrumentationFile.fromPath(this.instrumentationPath);
+  }
+
   public async addLogger() {
     if (this.isLoggerInstalled) {
       throw new Error("Logger is already installed");
@@ -322,7 +330,7 @@ export class NextAppInstaller {
     const loggerTemplatePath = resolve(TEMPLATE_ROOT, "logtape", "lib");
     await fs.cp(loggerTemplatePath, this.libPath, { recursive: true });
 
-    const instrumentationFile = await NextInstrumentationFile.fromPath(this.instrumentationPath);
+    const instrumentationFile = await this.getNextInstrumentationFile();
     instrumentationFile.addImportDeclaration({
       moduleSpecifier: "@/lib/logger",
     });

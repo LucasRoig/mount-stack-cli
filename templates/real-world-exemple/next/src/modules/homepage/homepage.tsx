@@ -1,10 +1,14 @@
 import { cn } from "@lro-ui/utils";
 import { Container } from "@/components/layout/container";
+import { getServerSideORPCClient } from "@/lib/orpc/orpc-server-side-client";
 
-export function HomePage(_props: PageProps<"/">) {
+export async function HomePage(_props: PageProps<"/">) {
+  const client = await getServerSideORPCClient();
+  const [error, workerMessage] = await client.helloWorker({ name: "World" });
+
   return (
     <div>
-      <Hero />
+      <Hero workerMessage={error ? "Worker error" : `User count: ${workerMessage}`} />
       <Container className="flex gap-8 flex-wrap">
         <Feed className="grow min-w-[350px]" />
         <Tags className="w-1/4 min-w-[200px]" />
@@ -13,12 +17,13 @@ export function HomePage(_props: PageProps<"/">) {
   );
 }
 
-function Hero() {
+function Hero({ workerMessage }: { workerMessage: string }) {
   return (
     <div className="border-b p-8 mb-8" data-testid="home-page-hero">
       <Container className="text-center">
         <h1 className="text-6xl mb-4">Conduit</h1>
         <p className="text-muted-foreground">A place to share your knowledge</p>
+        <p className="text-sm mt-2">{workerMessage}</p>
       </Container>
     </div>
   );
