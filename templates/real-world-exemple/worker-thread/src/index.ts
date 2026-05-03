@@ -1,5 +1,8 @@
 import path from "node:path";
 import { Tinypool } from "tinypool";
+import { CountArticlesHandler } from "./handlers/count-articles";
+import { CountArticlesByTagHandler } from "./handlers/count-articles-by-tag";
+import { HelloWorldHandler } from "./handlers/hello-from-web-worker";
 
 let pool: Tinypool | undefined;
 
@@ -30,13 +33,16 @@ function getPool(): Tinypool {
   return pool;
 }
 
-export function runCountUsers(): Promise<number> {
-  return getPool().run(undefined);
-}
-
-export async function destroyWorkerPool(): Promise<void> {
+async function destroyWorkerPool(): Promise<void> {
   if (pool) {
     await pool.destroy();
     pool = undefined;
   }
 }
+
+export const WorkerService = {
+  helloWorld: () => HelloWorldHandler.start(getPool(), undefined),
+  countArticles: () => CountArticlesHandler.start(getPool(), undefined),
+  countArticlesByTag: (tag: string) => CountArticlesByTagHandler.start(getPool(), { tag }),
+  destroy: () => destroyWorkerPool(),
+};

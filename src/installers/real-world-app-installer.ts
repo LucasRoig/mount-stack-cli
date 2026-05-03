@@ -224,16 +224,17 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   nextInstrumentationFile.addStatementsToRegisterFunction([
     `
     if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { destroyWorkerPool } = await import("@repo/worker-thread");
+      const { WorkerService } = await import("@repo/worker-thread");
 
-    const shutdown = async () => {
-      await destroyWorkerPool();
-      process.exit(0);
-    };
+      const shutdown = async () => {
+        await WorkerService.destroy();
+        process.exit(0);
+      };
 
-    process.on("SIGTERM", shutdown);
-    process.on("SIGINT", shutdown);
-  }`,
+      process.on("SIGTERM", shutdown);
+      process.on("SIGINT", shutdown);
+    }
+    `,
   ]);
   await nextInstrumentationFile.save();
 }
