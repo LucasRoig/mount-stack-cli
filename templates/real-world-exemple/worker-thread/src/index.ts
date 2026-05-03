@@ -3,6 +3,8 @@ import { Tinypool } from "tinypool";
 
 let pool: Tinypool | undefined;
 
+const isDev = process.env.NODE_ENV === "development";
+
 function getWorkerPath(): string {
   if (import.meta.dirname) {
     // Works when package is externalized (not bundled by Turbopack)
@@ -18,9 +20,11 @@ function getPool(): Tinypool {
   if (!pool) {
     pool = new Tinypool({
       filename: getWorkerPath(),
-      minThreads: 1,
-      maxThreads: 2,
-      idleTimeout: 30000,
+      // In dev mode, terminate workers after each task so they pick up
+      // the latest rebuilt worker.js on the next request (hot reload).
+      ...(isDev
+        ? { isolateWorkers: true, minThreads: 0, maxThreads: 1 }
+        : { minThreads: 1, maxThreads: 2, idleTimeout: 30000 }),
     });
   }
   return pool;
