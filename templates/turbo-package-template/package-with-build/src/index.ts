@@ -1,1 +1,5 @@
-export const ONE = 1;
+function main() {
+  console.log("Hello, World!");
+}
+
+main();

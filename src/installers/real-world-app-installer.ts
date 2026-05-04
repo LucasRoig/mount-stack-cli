@@ -13,6 +13,7 @@ import type { NextAppInstaller } from "./next-app-installer";
 import type { OrpcInstaller } from "./orpc-installer";
 import type { PlaywrightInstaller } from "./playwright-installer";
 import { TurboPackageInstaller } from "./turbo-package-installer";
+import { TurboNodeAppInstaller } from "./turpo-node-app-installer";
 
 type InstallRealWorldAppOptions = {
   nextAppInstaller: NextAppInstaller;
@@ -39,7 +40,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await fs.cp(apiTemplateRoot, options.orpcInstaller.getRootPath(), { recursive: true });
 
   const rbacTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "rbac");
-  await fs.cp(rbacTemplateRoot, resolve(options.betterAuthInstaller.caslInstaller.getRootPath(), "rbac"), {
+  await fs.cp(rbacTemplateRoot, options.betterAuthInstaller.caslInstaller.getRootPath(), {
     recursive: true,
   });
 
@@ -205,6 +206,12 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
       throw new Error("Existing dev command must be a string");
     }
     json.scripts.dev = `${currentDevCommand} --filter=@repo/worker-thread`;
+
+    const currentBuildCommand = json.scripts.build;
+    if (!currentBuildCommand || typeof currentBuildCommand !== "string") {
+      throw new Error("Existing build command must be a string");
+    }
+    json.scripts.build = `${currentBuildCommand} --filter=@repo/worker-thread`;
   });
   const workerThreadTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "worker-thread");
   await fs.cp(workerThreadTemplateRoot, workerThreadPackage.path, { recursive: true });
@@ -237,4 +244,51 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
     `,
   ]);
   await nextInstrumentationFile.save();
+
+  //Moderation API
+  const moderationAppInstaller = await TurboNodeAppInstaller.create({
+    name: "moderation-api",
+    subPath: "moderation-api",
+    monoRepoInstaller: options.monoRepoInstaller,
+  });
+  const moderationApiTemplateRoot = resolve(TEMPLATE_ROOT, "real-world-exemple", "moderation-api");
+  await fs.cp(moderationApiTemplateRoot, moderationAppInstaller.path, { recursive: true });
+
+  await moderationAppInstaller.addDependencyToPackageJson("@hono/node-server", Versions["@hono/node-server"]);
+  await moderationAppInstaller.addDependencyToPackageJson("@repo/database", "workspace:*");
+  await moderationAppInstaller.addDependencyToPackageJson("@repo/ts-utils", "workspace:*");
+  await moderationAppInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+  await moderationAppInstaller.addDependencyToPackageJson("hono", Versions.hono);
+  await moderationAppInstaller.addDependencyToPackageJson("pg", Versions.pg);
+  await moderationAppInstaller.addDependencyToPackageJson("zod", Versions.zod);
+  await moderationAppInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
+
+  await moderationAppInstaller.addEnvVariable("PG_USER", "postgres");
+  await moderationAppInstaller.addEnvVariable("PG_PASSWORD", "postgres");
+  await moderationAppInstaller.addEnvVariable("PG_DATABASE", options.databaseInstaller.databaseName);
+  await moderationAppInstaller.addEnvVariable("PG_HOST", "localhost");
+  await moderationAppInstaller.addEnvVariable("PG_PORT", "5432");
+  await options.monoRepoInstaller.appendToJustfile(`
+docker_moderation-api_name := "moderation-api"
+
+@build_moderation-api version:
+  docker build -t {{docker_moderation-api_name}}:{{version}} -f apps/moderation-api/Dockerfile .
+
+@run_moderation-api version:
+  docker run -p 8000:8000 --env-file ./apps/moderation-api/.env -e PG_HOST=172.17.0.1 {{docker_moderation-api_name}}:{{version}}`)
+
+  await updateJsonFile(options.monoRepoInstaller.rootPackageJsonPath, (json) => {
+    json.scripts = json.scripts ?? {};
+    const currentDevCommand = json.scripts.dev;
+    if (!currentDevCommand || typeof currentDevCommand !== "string") {
+      throw new Error("Existing dev command must be a string");
+    }
+    json.scripts.dev = `${currentDevCommand} --filter=moderation-api`;
+
+    const currentBuildCommand = json.scripts.build;
+    if (!currentBuildCommand || typeof currentBuildCommand !== "string") {
+      throw new Error("Existing build command must be a string");
+    }
+    json.scripts.build = `${currentBuildCommand} --filter=moderation-api`;
+  });
 }

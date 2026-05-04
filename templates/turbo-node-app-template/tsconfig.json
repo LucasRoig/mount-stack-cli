@@ -1,0 +1,9 @@
+{
+  "extends": "@repo/typescript-config/node-app.json",
+  "include": ["."],
+  "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "customConditions": ["vs-code-lsp"],
+    "rootDir": "."
+  }
+}

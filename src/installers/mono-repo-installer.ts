@@ -8,6 +8,7 @@ type MonoRepoInstallerArgs = {
 export class MonoRepoInstaller {
   public readonly rootPath: string;
   public readonly packagesPath: string;
+  public readonly appsPath: string;
   public readonly appName: string;
   public readonly rootPackageJsonPath: string;
   private justfilePath: string;
@@ -18,6 +19,7 @@ export class MonoRepoInstaller {
     this.rootPackageJsonPath = resolve(this.rootPath, "package.json");
     this.justfilePath = resolve(this.rootPath, "justfile");
     this.packagesPath = resolve(this.rootPath, "packages");
+    this.appsPath = resolve(this.rootPath, "apps");
   }
 
   public async justfileExists(): Promise<boolean> {

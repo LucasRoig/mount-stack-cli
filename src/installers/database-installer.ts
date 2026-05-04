@@ -21,6 +21,7 @@ type DatabaseInstallerCreateArgs = {
 
 export class DatabaseInstaller {
   private prismaSchemaPath: string | undefined;
+  public readonly databaseName: string;
 
   public getPrismaSchema() {
     if (!this.prismaSchemaPath) {
@@ -30,12 +31,14 @@ export class DatabaseInstaller {
   }
 
   public static async create(args: DatabaseInstallerCreateArgs): Promise<DatabaseInstaller> {
-    const installer = new DatabaseInstaller();
+    const installer = new DatabaseInstaller(args);
     await installer.init(args);
     return installer;
   }
 
-  private constructor() {}
+  private constructor(args: DatabaseInstallerCreateArgs) {
+    this.databaseName = args.monoRepoInstaller.appName;
+  }
 
   private async init(args: DatabaseInstallerCreateArgs) {
     const packageInstaller = await TurboPackageInstaller.create({
@@ -77,7 +80,7 @@ export class DatabaseInstaller {
 
     const dockerPostgresUser = "postgres";
     const dockerPostgresPassword = "postgres";
-    const dockerPostgresDatabase = args.monoRepoInstaller.appName;
+    const dockerPostgresDatabase = this.databaseName;
     const dockerPostgresPort = "5432";
     await args.dockerComposeInstaller.addManagedVolume(`${args.monoRepoInstaller.appName}-postgres-data`);
     await args.dockerComposeInstaller.addService({
