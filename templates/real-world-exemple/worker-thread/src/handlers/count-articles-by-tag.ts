@@ -1,8 +1,6 @@
-import { type AppDatabase, drizzleSchema } from "@repo/database";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { type AppDatabase, drizzleSchema, getDatabaseClient } from "@repo/database";
 import { eq } from "drizzle-orm/sql/expressions/conditions";
 import { count } from "drizzle-orm/sql/functions/aggregate";
-import pg from "pg";
 import type { Tinypool } from "tinypool";
 import type { WebWorkerHandler } from "../types";
 
@@ -26,8 +24,8 @@ function buildConnectionString(): string {
 
 function getDatabase(): AppDatabase {
   if (!database) {
-    const pool = new pg.Pool({ connectionString: buildConnectionString() });
-    database = drizzle({ client: pool, schema: drizzleSchema });
+    const connectionString = buildConnectionString();
+    database = getDatabaseClient(connectionString);
   }
   return database;
 }

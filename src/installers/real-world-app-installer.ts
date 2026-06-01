@@ -152,7 +152,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
 
   //API
   await options.orpcInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
-  await options.orpcInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+  await options.orpcInstaller.addDependencyToPackageJson("drizzle-orm", "catalog:");
   await options.orpcInstaller.addDependencyToPackageJson("@paralleldrive/cuid2", Versions["@paralleldrive/cuid2"]);
   await updateJsonFile(options.orpcInstaller.packageJsonPath, (json) => {
     if (!json.exports) {
@@ -180,10 +180,8 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
     monoRepoInstaller: options.monoRepoInstaller,
   });
   await workerThreadPackage.addDependencyToPackageJson("@repo/database", "workspace:*");
-  await workerThreadPackage.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
-  await workerThreadPackage.addDependencyToPackageJson("pg", Versions.pg);
+  await workerThreadPackage.addDependencyToPackageJson("drizzle-orm", "catalog:");
   await workerThreadPackage.addDependencyToPackageJson("tinypool", Versions.tinypool);
-  await workerThreadPackage.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
   await workerThreadPackage.addDevDependencyToPackageJson("tsup", Versions.tsup);
   await workerThreadPackage.addDevDependencyToPackageJson("typescript", Versions.typescript);
   await workerThreadPackage.addScriptToPackageJson("dev", "tsc -p tsconfig.build-types.json --watch & tsup --watch");
@@ -256,12 +254,9 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
 
   await moderationAppInstaller.addDependencyToPackageJson("@hono/node-server", Versions["@hono/node-server"]);
   await moderationAppInstaller.addDependencyToPackageJson("@repo/database", "workspace:*");
-  await moderationAppInstaller.addDependencyToPackageJson("@repo/ts-utils", "workspace:*");
-  await moderationAppInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+  await moderationAppInstaller.addDependencyToPackageJson("drizzle-orm", "catalog:");
   await moderationAppInstaller.addDependencyToPackageJson("hono", Versions.hono);
-  await moderationAppInstaller.addDependencyToPackageJson("pg", Versions.pg);
   await moderationAppInstaller.addDependencyToPackageJson("zod", Versions.zod);
-  await moderationAppInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
 
   await moderationAppInstaller.addEnvVariable("PG_USER", "postgres");
   await moderationAppInstaller.addEnvVariable("PG_PASSWORD", "postgres");
@@ -275,7 +270,7 @@ docker_moderation-api_name := "moderation-api"
   docker build -t {{docker_moderation-api_name}}:{{version}} -f apps/moderation-api/Dockerfile .
 
 @run_moderation-api version:
-  docker run -p 8000:8000 --env-file ./apps/moderation-api/.env -e PG_HOST=172.17.0.1 {{docker_moderation-api_name}}:{{version}}`)
+  docker run -p 8000:8000 --env-file ./apps/moderation-api/.env -e PG_HOST=172.17.0.1 {{docker_moderation-api_name}}:{{version}}`);
 
   await updateJsonFile(options.monoRepoInstaller.rootPackageJsonPath, (json) => {
     json.scripts = json.scripts ?? {};

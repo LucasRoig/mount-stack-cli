@@ -35,6 +35,7 @@ export class BetterAuthInstaller {
   private constructor() {}
 
   private async init(args: BetterAuthInstallerCreateArgs) {
+    await args.monoRepoInstaller.getPnpmWorkspaceFile().addToOverrides("better-auth>kysely", ">=0.28.17 <0.29.0"); //Compatibility issue in better-auth@1.6.13 TODO : check when it is fixed in better-auth
     await args.nextAppInstaller.addDependencyToPackageJson("better-auth", Versions["better-auth"]);
     await args.nextAppInstaller.addEnvVariable(
       "BETTER_AUTH_SECRET",

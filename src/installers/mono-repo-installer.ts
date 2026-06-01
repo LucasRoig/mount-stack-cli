@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { resolve } from "node:path";
+import { PnpmWorkspaceFile } from "../helpers/pnpm-workspace-file";
 
 type MonoRepoInstallerArgs = {
   rootPath: string;
@@ -12,6 +13,7 @@ export class MonoRepoInstaller {
   public readonly appName: string;
   public readonly rootPackageJsonPath: string;
   private justfilePath: string;
+  private pnpmWorkspacePath: string;
 
   constructor(args: MonoRepoInstallerArgs) {
     this.rootPath = args.rootPath;
@@ -20,6 +22,7 @@ export class MonoRepoInstaller {
     this.justfilePath = resolve(this.rootPath, "justfile");
     this.packagesPath = resolve(this.rootPath, "packages");
     this.appsPath = resolve(this.rootPath, "apps");
+    this.pnpmWorkspacePath = resolve(this.rootPath, "pnpm-workspace.yaml");
   }
 
   public async justfileExists(): Promise<boolean> {
@@ -38,5 +41,9 @@ export class MonoRepoInstaller {
 
   public async appendToJustfile(content: string) {
     await fs.appendFile(this.justfilePath, content, "utf8");
+  }
+
+  public getPnpmWorkspaceFile() {
+    return new PnpmWorkspaceFile(this.pnpmWorkspacePath);
   }
 }

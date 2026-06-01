@@ -56,8 +56,12 @@ export class DatabaseInstaller {
       Versions["prisma-generator-drizzle"],
     );
     await packageInstaller.addDevDependencyToPackageJson("@types/node", Versions["@types/node"]);
+    await packageInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
 
-    await packageInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+    await args.monoRepoInstaller.getPnpmWorkspaceFile().addToCatalog("drizzle-orm", Versions["drizzle-orm"]);
+    await packageInstaller.addDependencyToPackageJson("drizzle-orm", "catalog:");
+    await packageInstaller.addDependencyToPackageJson("pg", Versions.pg);
+    await packageInstaller.addDependencyToPackageJson("@repo/ts-utils", "workspace:*");
 
     const templateDir = path.resolve(TEMPLATE_ROOT, "database", "prisma-drizzle", "package");
     await fs.cp(templateDir, packageInstaller.path, { recursive: true });
@@ -107,9 +111,7 @@ export class DatabaseInstaller {
     const dbClientDestinationPath = path.resolve(args.nextAppInstaller.srcPath, "lib", "database.ts");
     await fs.copyFile(dbClientTemplatePath, dbClientDestinationPath);
     await args.nextAppInstaller.addDependencyToPackageJson(packageInstaller.packageName, "workspace:*");
-    await args.nextAppInstaller.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
-    await args.nextAppInstaller.addDependencyToPackageJson("pg", Versions.pg);
-    await args.nextAppInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
+    await args.nextAppInstaller.addDependencyToPackageJson("drizzle-orm", "catalog:");
     await args.nextAppInstaller.addDependencyToPackageJson(args.tsUtilsInstaller.packageName, "workspace:*");
     await args.nextAppInstaller.addEnvVariable("PG_USER", EnvVisibilities.SERVER, dockerPostgresUser);
     await args.nextAppInstaller.addEnvVariable("PG_PASSWORD", EnvVisibilities.SECRET, dockerPostgresPassword);

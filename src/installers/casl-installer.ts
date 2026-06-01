@@ -32,7 +32,7 @@ export class CaslInstaller {
     await this.package.addDependencyToPackageJson("@casl/ability", Versions["@casl/ability"]);
     await this.package.addDependencyToPackageJson("@repo/database", "workspace:*");
     await this.package.addDependencyToPackageJson("@repo/ts-utils", "workspace:*");
-    await this.package.addDependencyToPackageJson("drizzle-orm", Versions["drizzle-orm"]);
+    await this.package.addDependencyToPackageJson("drizzle-orm", "catalog:");
     await this.package.addDependencyToPackageJson("neverthrow", Versions.neverthrow);
 
     const templatePath = path.resolve(TEMPLATE_ROOT, "casl", "package");
