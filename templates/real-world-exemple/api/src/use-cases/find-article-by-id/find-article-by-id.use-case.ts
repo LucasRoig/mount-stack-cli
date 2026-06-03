@@ -1,6 +1,7 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
 import type { AppDatabase } from "@repo/database";
+import { okAsync, ResultAsync } from "neverthrow";
 import { match } from "ts-pattern";
 import z from "zod";
 import { DbUtils } from "../../@utils/database-utils";
@@ -23,7 +24,7 @@ export const FindArticleByIdProcedure = procedures.public
   .handler(async ({ context, input, errors }) => {
     const uc = new FindArticleByIdUseCase(context.database);
     const result = await uc
-      .execute(input)
+      .execute(input, context.session?.user.id)
       .orTee((err) => logger.error(err))
       .mapErr((err) =>
         match(err)
@@ -37,7 +38,25 @@ export const FindArticleByIdProcedure = procedures.public
 class FindArticleByIdUseCase {
   constructor(private database: AppDatabase) {}
 
-  public execute(articleId: string) {
+  public isLikedByCurrentUser(articleId: string, userId: string) {
+    return DbUtils.execute(() =>
+      this.database.query.articlesLikes.findFirst({
+        where: (articleLikes, { and, eq }) =>
+          and(eq(articleLikes.userId, userId), eq(articleLikes.articleId, articleId)),
+      }),
+    ).map((res) => Boolean(res));
+  }
+
+  public isAuthorFollowedByCurrentUser(authorId: string, userId: string) {
+    return DbUtils.execute(() =>
+      this.database.query.userFollowers.findFirst({
+        where: (userFollowers, { and, eq }) =>
+          and(eq(userFollowers.userId, authorId), eq(userFollowers.followerId, userId)),
+      }),
+    ).map((res) => Boolean(res));
+  }
+
+  public execute(articleId: string, currentUserId: string | undefined) {
     return DbUtils.executeAndExpectDefined(
       () =>
         this.database.query.articles.findFirst({
@@ -50,6 +69,25 @@ class FindArticleByIdUseCase {
           },
         }),
       "NOT_FOUND",
-    );
+    )
+      .andThen((article) => {
+        if (!currentUserId) {
+          return okAsync([article, false, false] as const);
+        } else {
+          return ResultAsync.combine([
+            okAsync(article),
+            this.isLikedByCurrentUser(articleId, currentUserId),
+            this.isAuthorFollowedByCurrentUser(article.author.id, currentUserId),
+          ]);
+        }
+      })
+      .map(([article, isLikedByCurrentUser, isAuthorFollowedByCurrentUser]) => ({
+        ...article,
+        isLikedByCurrentUser,
+        author: {
+          ...article.author,
+          isFollowedByCurrentUser: isAuthorFollowedByCurrentUser,
+        },
+      }));
   }
 }

@@ -1,7 +1,7 @@
+import { Avatar, AvatarFallback, AvatarImage } from "@lro-ui/avatar";
 import { Button } from "@lro-ui/button";
 import { UserRoundPenIcon } from "lucide-react";
 import { headers } from "next/headers";
-import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { getAuth } from "@/lib/auth/auth";
@@ -23,16 +23,16 @@ export async function ProfilePage(props: PageProps<"/profile/[username]">) {
 }
 
 function ProfilePageHero(props: { username: string; isMe: boolean }) {
+  const initials = props.username.slice(0, 2).toUpperCase();
   return (
     <div className="border-b p-8 pb-4 mb-8">
       <Container className="text-center">
-        <Image
-          src="/default-avatar.svg"
-          alt="user avatar"
-          width={100}
-          height={100}
-          className="rounded-full mx-auto mb-4"
-        />
+        <Avatar className="size-20 rounded-full mx-auto mb-4">
+          <AvatarImage src="/default-avatar.svg" alt="user-avatar" />
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
         <h1 className="text-2xl font-bold mb-2">{props.username}</h1>
         {props.isMe && (
           <div className="text-right">

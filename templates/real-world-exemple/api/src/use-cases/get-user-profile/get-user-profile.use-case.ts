@@ -24,7 +24,6 @@ export const GetUserProfileProcedure = procedures.public
     },
   })
   .handler(async ({ input, context, errors }) => {
-    context.database;
     const uc = new GetUserProfileUseCase(context.database);
     const result = await uc
       .execute(input)

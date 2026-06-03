@@ -9,3 +9,8 @@ export const { signIn, signUp, useSession, signOut, changePassword, $ERROR_CODES
     customSessionClient<Auth>()
   ],
 });
+
+export const useIsAuthenticated = () => {
+  const { data: session } = useSession();
+  return Boolean(session);
+};

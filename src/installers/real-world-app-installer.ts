@@ -48,7 +48,13 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   const prismaSchema = await options.databaseInstaller.getPrismaSchema();
   prismaSchema
     .getModelByNameOrThrow("User")
-    .content.push({ kind: "field", content: "bio    String?" }, { kind: "field", content: "articles Article[]" });
+    .content.push(
+      { kind: "field", content: "bio    String?" },
+      { kind: "field", content: "articles Article[]" },
+      { kind: "field", content: `followers UserFollowers[] @relation("UserFollowers")` },
+      { kind: "field", content: `following UserFollowers[] @relation("UserFollowing")` },
+      { kind: "field", content: "likedArticles ArticlesLikes[]" },
+    );
   prismaSchema.schema.push({
     kind: "model",
     name: "Tag",
@@ -86,6 +92,36 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
       { kind: "field", content: "author User @relation(fields: [authorId], references: [id], onDelete: Cascade)" },
       { kind: "field", content: "tags Tag_Article[]" },
       { kind: "modelAttribute", content: `@@map("article")` },
+    ],
+  });
+  prismaSchema.schema.push({
+    kind: "model",
+    name: "UserFollowers",
+    content: [
+      { kind: "field", content: `userId String @map("user_id")` },
+      { kind: "field", content: `followerId String @map("follower_id")` },
+      {
+        kind: "field",
+        content: `user User @relation("UserFollowers", fields: [userId], references: [id], onDelete: Cascade)`,
+      },
+      {
+        kind: "field",
+        content: `follower User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)`,
+      },
+      { kind: "modelAttribute", content: `@@id([userId, followerId])` },
+      { kind: "modelAttribute", content: `@@map("user_followers")` },
+    ],
+  });
+  prismaSchema.schema.push({
+    kind: "model",
+    name: "ArticlesLikes",
+    content: [
+      { kind: "field", content: `userId String @map("user_id")` },
+      { kind: "field", content: `articleId String @map("article_id")` },
+      { kind: "field", content: `user User @relation(fields: [userId], references: [id], onDelete: Cascade)` },
+      { kind: "field", content: `article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)` },
+      { kind: "modelAttribute", content: `@@id([userId, articleId])` },
+      { kind: "modelAttribute", content: `@@map("articles_likes")` },
     ],
   });
   await prismaSchema.save();
