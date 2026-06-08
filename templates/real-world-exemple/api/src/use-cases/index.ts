@@ -1,6 +1,7 @@
 import type { InferRouterInputs, InferRouterOutputs } from "@orpc/server";
 import { o } from "../orpc";
 import { CreateArticleProcedure } from "./create-article/create-article.use-case";
+import { FetchGlobalFeedProcedure } from "./fetch-global-feed/fetch-global-feed.use-case";
 import { FindArticleByIdProcedure } from "./find-article-by-id/find-article-by-id.use-case";
 import { FollowUserProcedure } from "./follow-user/follow-user.use-case";
 import { GetUserProfileProcedure } from "./get-user-profile/get-user-profile.use-case";
@@ -22,6 +23,7 @@ export const appRouter = o.router({
   unfollowUser: UnfollowUserProcedure,
   likeArticle: LikeArticleProcedure,
   unlikeArticle: UnlikeArticleProcedure,
+  fetchGlobalFeed: FetchGlobalFeedProcedure,
 });
 
 export type RouterOutputs = InferRouterOutputs<typeof appRouter>;

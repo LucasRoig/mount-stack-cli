@@ -47,7 +47,7 @@ export class NextAppInstaller {
   private envLocalFilePath: string;
   private envTsFilePath: string;
   private tsConfigPath: string;
-  private globalsCssPath: string;
+  public readonly globalsCssPath: string;
   public readonly rootLayoutPath: string;
   private instrumentationPath: string;
   private packageJsonPath: string;

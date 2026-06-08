@@ -4,6 +4,7 @@ import ts from "typescript";
 import { TEMPLATE_ROOT } from "../consts";
 import { updateJsonFile } from "../helpers/json-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
+import { insertAfterTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
 import type { BetterAuthInstaller } from "./better-auth-installer";
 import type { DatabaseInstaller } from "./database-installer";
@@ -91,6 +92,7 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
       { kind: "field", content: `authorId String @map("author_id")` },
       { kind: "field", content: "author User @relation(fields: [authorId], references: [id], onDelete: Cascade)" },
       { kind: "field", content: "tags Tag_Article[]" },
+      { kind: "field", content: "likedBy ArticlesLikes[]" },
       { kind: "modelAttribute", content: `@@map("article")` },
     ],
   });
@@ -137,6 +139,11 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   await options.nextAppInstaller.addDependencyToPackageJson("@radix-ui/react-slot", Versions["@radix-ui/react-slot"]);
   await options.nextAppInstaller.addDependencyToPackageJson("lucide-react", Versions["lucide-react"]);
   await options.nextAppInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);
+  await options.nextAppInstaller.addDependencyToPackageJson("react-markdown", Versions["react-markdown"]);
+  await options.nextAppInstaller.addDevDependencyToPackageJson(
+    "@tailwindcss/typography",
+    Versions["@tailwindcss/typography"],
+  );
 
   const routeFile = await options.nextAppInstaller.getRouteFile();
   const routesObject = routeFile
@@ -157,6 +164,11 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
     {
       name: "editor",
       initializer: '"/editor"',
+    },
+    {
+      name: "article",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: the template is part of the string
+      initializer: "(articleId: string) => `/article/${articleId}`",
     },
   ]);
   routesObject
@@ -182,6 +194,12 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   });
   layoutFile.wrapChildrenWithComponent("<PageLayoutWithHeader>", "</PageLayoutWithHeader>");
   await layoutFile.save();
+
+  await insertAfterTextInFile(
+    options.nextAppInstaller.globalsCssPath,
+    '@import "tw-animate-css";\n',
+    '@plugin "@tailwindcss/typography";\n',
+  );
 
   // Remove useless page
   await fs.rmdir(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), { recursive: true });

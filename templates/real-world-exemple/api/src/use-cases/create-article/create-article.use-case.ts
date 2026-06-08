@@ -113,7 +113,7 @@ class CreateArticleUseCase {
             })
             .returning(),
         ).andThrough((article) =>
-          DbUtils.execute(() =>
+          DbUtils.executeIf(tagIds.length > 0, () =>
             this.database
               .insert(drizzleSchema.tagArticles)
               .values(tagIds.map((tagId) => ({ articleId: article.id, tagId }))),

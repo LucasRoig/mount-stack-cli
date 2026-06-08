@@ -50,7 +50,7 @@ export function UnfollowAuthorButton(props: { authorName: string; authorId: stri
   );
 }
 
-export function RemoveFromFavoritesButton(props: { className?: string, articleId: string }) {
+export function RemoveFromFavoritesButton(props: { className?: string, articleId: string, countFavorites: number }) {
   const router = useRouter();
   const removeFromFavoritesMutation = useMutation(
     orpc.unlikeArticle.mutationOptions({
@@ -64,12 +64,12 @@ export function RemoveFromFavoritesButton(props: { className?: string, articleId
       removeFromFavoritesMutation.mutate({ articleId: props.articleId });
     }}>
       <HeartIcon />
-      Unfavorite Article (count already fav)
+      Unfavorite Article ({props.countFavorites})
     </ButtonOrSignIn>
   );
 }
 
-export function AddToFavoritesButton(props: { className?: string, articleId: string }) {
+export function AddToFavoritesButton(props: { className?: string, articleId: string, countFavorites: number }) {
   const router = useRouter();
   const addToFavoritesMutation = useMutation(
     orpc.likeArticle.mutationOptions({
@@ -83,7 +83,7 @@ export function AddToFavoritesButton(props: { className?: string, articleId: str
       addToFavoritesMutation.mutate({ articleId: props.articleId });
     }}>
       <HeartIcon />
-      Favorite Article (count already fav)
+      Favorite Article ({props.countFavorites})
     </ButtonOrSignIn>
   );
 }

@@ -1,6 +1,7 @@
 import { getLogger } from "@logtape/logtape";
 import { ORPCError } from "@orpc/server";
-import type { AppDatabase } from "@repo/database";
+import { type AppDatabase, drizzleSchema } from "@repo/database";
+import { count, eq } from "drizzle-orm";
 import { okAsync, ResultAsync } from "neverthrow";
 import { match } from "ts-pattern";
 import z from "zod";
@@ -28,7 +29,12 @@ export const FindArticleByIdProcedure = procedures.public
       .orTee((err) => logger.error(err))
       .mapErr((err) =>
         match(err)
-          .with({ kind: "DATABASE_ERROR" }, () => new ORPCError("INTERNAL_SERVER_ERROR"))
+          .with(
+            { kind: "DATABASE_ERROR" },
+            { kind: "DB_RETURNED_TOO_MANY_VALUES" },
+            { kind: "DB_RETURNED_ZERO_VALUES" },
+            () => new ORPCError("INTERNAL_SERVER_ERROR"),
+          )
           .with({ kind: "NOT_FOUND" }, () => errors.NOT_FOUND())
           .exhaustive(),
       );
@@ -56,6 +62,17 @@ class FindArticleByIdUseCase {
     ).map((res) => Boolean(res));
   }
 
+  public countArticleLikes(articleId: string) {
+    return DbUtils.executeAndReturnOneRow(() =>
+      this.database
+        .select({
+          count: count(),
+        })
+        .from(drizzleSchema.articlesLikes)
+        .where(eq(drizzleSchema.articlesLikes.articleId, articleId)),
+    ).map((res) => res.count);
+  }
+
   public execute(articleId: string, currentUserId: string | undefined) {
     return DbUtils.executeAndExpectDefined(
       () =>
@@ -65,24 +82,39 @@ class FindArticleByIdUseCase {
             author: {
               columns: PUBLIC_USER_FIELDS_BOOLEAN,
             },
-            tags: true,
+            tags: {
+              with: {
+                tag: true,
+              },
+            },
           },
         }),
       "NOT_FOUND",
     )
+      .map((article) => ({
+        ...article,
+        tags: article.tags.map((articleTag) => articleTag.tag),
+      }))
       .andThen((article) => {
         if (!currentUserId) {
-          return okAsync([article, false, false] as const);
+          return ResultAsync.combine([
+            okAsync(article),
+            okAsync(false),
+            okAsync(false),
+            this.countArticleLikes(articleId),
+          ]);
         } else {
           return ResultAsync.combine([
             okAsync(article),
             this.isLikedByCurrentUser(articleId, currentUserId),
             this.isAuthorFollowedByCurrentUser(article.author.id, currentUserId),
+            this.countArticleLikes(articleId),
           ]);
         }
       })
-      .map(([article, isLikedByCurrentUser, isAuthorFollowedByCurrentUser]) => ({
+      .map(([article, isLikedByCurrentUser, isAuthorFollowedByCurrentUser, countLikes]) => ({
         ...article,
+        countLikes: countLikes,
         isLikedByCurrentUser,
         author: {
           ...article.author,

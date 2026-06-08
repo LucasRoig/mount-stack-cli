@@ -19,6 +19,7 @@ export function getDatabaseClient(connectionString: string): AppDatabase {
     return drizzle({
       client: pool,
       schema: drizzleSchema,
+      logger: false,
     });
   });
 }
