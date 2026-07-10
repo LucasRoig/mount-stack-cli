@@ -103,7 +103,7 @@ class FetchGlobalFeedUseCase {
           authorName: withAuthors.authorName,
           authorPicture: withAuthors.authorPicture,
           isLikedByCurrentUser: withAuthors.isLikedByCurrentUser,
-          tags: sql<string[]>`ARRAY_AGG(${drizzleSchema.tags.name})`,
+          tags: sql<(string | null)[]>`ARRAY_AGG(${drizzleSchema.tags.name})`,
         })
         .from(withAuthors)
         .leftJoin(drizzleSchema.tagArticles, eq(withAuthors.id, drizzleSchema.tagArticles.articleId))
@@ -119,6 +119,6 @@ class FetchGlobalFeedUseCase {
           withAuthors.authorPicture,
           withAuthors.isLikedByCurrentUser,
         ),
-    );
+    ).map((articles) => articles.map((article) => ({ ...article, tags: article.tags.filter((tag) => tag !== null) })));
   }
 }

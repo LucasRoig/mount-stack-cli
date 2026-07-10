@@ -3,6 +3,7 @@ import { cn } from "@lro-ui/utils";
 import Link from "next/link";
 import { ArticleTagsList } from "@/components/article-tag-list";
 import { Container } from "@/components/layout/container";
+import { Tag } from "@/components/tag";
 import { getServerSideORPCClient } from "@/lib/orpc/orpc-server-side-client";
 import { Routes } from "@/routes";
 import { SmallAddToFavoritesButton, SmallRemoveFromFavoritesButton } from "./homepage-buttons";
@@ -42,10 +43,23 @@ function Feed({ className }: { className?: string }) {
   );
 }
 
-function Tags({ className }: { className?: string }) {
+async function Tags({ className }: { className?: string }) {
+  const client = await getServerSideORPCClient();
+  const [error, tags] = await client.fetchPopularTags({ limit: 50 });
+
+  if (error) {
+    console.error("Error fetching popular tags:", error);
+    return <div className="bg-red-300">Error loading popular tags</div>;
+  }
   return (
     <div className={cn("border-l pl-4", className)}>
-      <div className="bg-cyan-300">Tags</div>
+      <div className="flex items-center flex-wrap gap-y-2">
+        {tags.map((tag) => (
+          <Tag key={tag.id} className="hover:bg-neutral-100 cursor-pointer" asChild>
+            <button type="button" >{tag.name}</button>
+          </Tag>
+        ))}
+      </div>
     </div>
   );
 }
