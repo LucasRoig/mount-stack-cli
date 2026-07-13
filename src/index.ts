@@ -5,10 +5,13 @@ import { cancel, confirm, intro, log, multiselect, outro, text } from "@clack/pr
 import color from "picocolors";
 import { updatePackage } from "pkg-types";
 import { TEMPLATE_ROOT } from "./consts";
+import { exists } from "./helpers/file-utils";
 import { Git } from "./helpers/git";
 import { updateJsonFile } from "./helpers/json-file";
+import { runPnpm } from "./helpers/pnpm-helper";
 import { runProcess } from "./helpers/run-process";
 import { type TaskWithLogDefinition, tasksWithLogs } from "./helpers/tasks-with-logs";
+import { updateTomlFile } from "./helpers/toml-file";
 import { BetterAuthInstaller, type BetterAuthProviders } from "./installers/better-auth-installer";
 import { DatabaseInstaller } from "./installers/database-installer";
 import { DesignSystemInstaller } from "./installers/design-system-installer";
@@ -291,13 +294,15 @@ function initTurboRepo(args: { path: string; appName: string; context: Context }
         appName: args.appName,
       });
       await updatePackage(resolve(args.path, "package.json"), (pkg) => {
-        pkg.volta = pkg.volta || {};
-        pkg.volta.node = Versions.node;
-
         pkg.engines = pkg.engines || {};
         pkg.engines.node = ">=22";
-
         pkg.packageManager = `pnpm@${Versions.pnpm}`;
+      });
+      await updateTomlFile(resolve(args.path, "mise.toml"), (toml) => {
+        toml.tools = {
+          node: Versions.node,
+          pnpm: Versions.pnpm,
+        };
       });
       await updateJsonFile(resolve(args.path, "turbo.json"), (json) => {
         const buildOutputs = json.tasks?.build?.outputs;
@@ -306,6 +311,7 @@ function initTurboRepo(args: { path: string; appName: string; context: Context }
         }
         buildOutputs.push("dist/**");
       });
+      args.context.monoRepoInstaller.getPnpmWorkspaceFile().addToCatalog("@types/node", Versions["@types/node"]);
       return { success: true, message: "Turbo repo initialized" };
     } catch (err) {
       return { success: false, message: `Turbo repo initialization failed: ${err}` };
@@ -429,9 +435,9 @@ function copyVsCodeSettingsFile(args: { path: string }): TaskWithLogDefinition["
     try {
       const template = resolve(TEMPLATE_ROOT, ".vscode");
       const destDir = resolve(args.path, ".vscode");
-      await fs.stat(destDir).catch(async () => {
+      if (await exists(destDir)) {
         await fs.mkdir(destDir, { recursive: true });
-      });
+      }
       await fs.cp(template, destDir, { recursive: true });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
@@ -656,7 +662,7 @@ function addBetterAuth(args: { path: string; context: Context }): TaskWithLogDef
 function installDependencies(args: { path: string }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
-      await runProcess("pnpm", ["install"], {
+      await runPnpm(["install", "--ignore-scripts"], {
         onStdout: tmpLog.message,
         onStderr: tmpLog.message,
         cwd: args.path,
@@ -705,7 +711,7 @@ function installDesignSystem(args: { path: string; context: Context }): TaskWith
 function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
-      await runProcess("pnpm", ["fix"], {
+      await runPnpm(["fix"], {
         onStdout: tmpLog.message,
         onStderr: tmpLog.message,
         cwd: args.path,
@@ -726,7 +732,7 @@ function runPnpmFix(args: { path: string }): TaskWithLogDefinition["task"] {
 function generateDatabase(args: { path: string }): TaskWithLogDefinition["task"] {
   return async (tmpLog) => {
     try {
-      await runProcess("pnpm", ["db:generate"], {
+      await runPnpm(["db:generate"], {
         onStdout: tmpLog.message,
         onStderr: tmpLog.message,
         cwd: args.path,

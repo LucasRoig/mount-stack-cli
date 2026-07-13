@@ -4,6 +4,7 @@ import { updatePackage } from "pkg-types";
 import { ts, VariableDeclarationKind } from "ts-morph";
 import { match } from "ts-pattern";
 import { TEMPLATE_ROOT } from "../consts";
+import { exists } from "../helpers/file-utils";
 import { NextConfigFile } from "../helpers/next-config-file";
 import { NextInstrumentationFile } from "../helpers/next-instrumentation-file";
 import { NextLayoutFile } from "../helpers/next-layout-file";
@@ -122,7 +123,7 @@ export class NextAppInstaller {
     );
 
     const badPnpmWorkspaceFilePath = resolve(this.nextAppRootPath, "pnpm-workspace.yaml");
-    if (await fs.stat(badPnpmWorkspaceFilePath).catch(() => false)) {
+    if (await exists(badPnpmWorkspaceFilePath)) {
       await fs.rm(badPnpmWorkspaceFilePath);
     }
 

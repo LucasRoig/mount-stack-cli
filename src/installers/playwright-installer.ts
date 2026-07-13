@@ -44,7 +44,7 @@ export class PlaywrightInstaller {
       }
       pkg.devDependencies["@playwright/test"] = Versions["@playwright/test"];
       pkg.devDependencies.dotenv = Versions.dotenv;
-      pkg.devDependencies["@types/node"] = Versions["@types/node"];
+      pkg.devDependencies["@types/node"] = "catalog:";
       pkg.devDependencies.typescript = Versions.typescript;
     });
   }

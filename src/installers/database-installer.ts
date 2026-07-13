@@ -55,7 +55,7 @@ export class DatabaseInstaller {
       "prisma-generator-drizzle",
       Versions["prisma-generator-drizzle"],
     );
-    await packageInstaller.addDevDependencyToPackageJson("@types/node", Versions["@types/node"]);
+    await packageInstaller.addDevDependencyToPackageJson("@types/node", "catalog:");
     await packageInstaller.addDevDependencyToPackageJson("@types/pg", Versions["@types/pg"]);
 
     await args.monoRepoInstaller.getPnpmWorkspaceFile().addToCatalog("drizzle-orm", Versions["drizzle-orm"]);

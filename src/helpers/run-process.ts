@@ -1,14 +1,9 @@
 import { resolve as resolvePath } from "node:path";
 import { x } from "tinyexec";
-export function runProcess(
-  command: string,
-  args: string[],
-  {
-    onStdout,
-    onStderr,
-    cwd,
-  }: { onStdout?: (msg: string) => void; onStderr?: (msg: string) => void; cwd?: string } = {},
-) {
+
+export type RunProcessOptions = { onStdout?: (msg: string) => void; onStderr?: (msg: string) => void; cwd?: string };
+
+export function runProcess(command: string, args: string[], { onStdout, onStderr, cwd }: RunProcessOptions = {}) {
   return new Promise<void>((resolve, reject) => {
     try {
       const proc = x(command, args, {

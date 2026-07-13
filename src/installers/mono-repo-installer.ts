@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { resolve } from "node:path";
+import { exists } from "../helpers/file-utils";
 import { PnpmWorkspaceFile } from "../helpers/pnpm-workspace-file";
 
 type MonoRepoInstallerArgs = {
@@ -26,10 +27,7 @@ export class MonoRepoInstaller {
   }
 
   public async justfileExists(): Promise<boolean> {
-    return await fs
-      .stat(this.justfilePath)
-      .then(() => true)
-      .catch(() => false);
+    return await exists(this.justfilePath);
   }
 
   public async createJustfile() {

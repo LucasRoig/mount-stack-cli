@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { exists } from "../helpers/file-utils";
 import { updateYamlFile } from "../helpers/yaml-file";
 
 type DockerComposeInstallerCreateArgs = {
@@ -25,7 +26,7 @@ export class DockerComposeInstaller {
   private constructor(private path: string) {}
 
   private async init(args: DockerComposeInstallerCreateArgs) {
-    if (await fs.stat(args.path).catch(() => false)) {
+    if (await exists(args.path)) {
       throw new Error(`File already exists at path ${args.path}`);
     }
     await fs.writeFile(args.path, "");
