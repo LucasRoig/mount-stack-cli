@@ -202,7 +202,10 @@ export async function installRealWorldApp(options: InstallRealWorldAppOptions) {
   );
 
   // Remove useless page
-  await fs.rmdir(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), { recursive: true });
+  await fs.rm(resolve(options.nextAppInstaller.srcPath, "app/(protected)/protected-page"), {
+    recursive: true,
+    force: true,
+  });
 
   //API
   await options.orpcInstaller.addDependencyToPackageJson("ts-pattern", Versions["ts-pattern"]);

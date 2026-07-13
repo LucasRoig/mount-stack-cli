@@ -32,12 +32,12 @@ type Context = {
   playwrightInstaller: PlaywrightInstaller | undefined;
   dockerComposeInstaller: DockerComposeInstaller | undefined;
   betterAuthConfig:
-  | {
-    enabled: true;
-    providers: BetterAuthProviders[];
-    useDatabase: boolean;
-  }
-  | undefined;
+    | {
+        enabled: true;
+        providers: BetterAuthProviders[];
+        useDatabase: boolean;
+      }
+    | undefined;
   designSystemInstaller: DesignSystemInstaller | undefined;
   betterAuthInstaller: BetterAuthInstaller | undefined;
 };
@@ -46,6 +46,7 @@ async function main() {
   const cwd = process.cwd();
   intro(color.inverse("Mount stack"));
   log.info(`Current directory ${cwd}`);
+  log.info(`Node version : ${process.version}`);
 
   const relativeProjectPath = await text({
     message: "Where would you like to create your project ?",
@@ -129,9 +130,9 @@ async function main() {
   const shouldInstallRealWorldApp =
     setupDesignSystem && shouldSetupPlaywright
       ? await confirm({
-        message: "Do you want to setup the real-world app exemple in the Next.js app ?",
-        initialValue: true,
-      })
+          message: "Do you want to setup the real-world app exemple in the Next.js app ?",
+          initialValue: true,
+        })
       : false;
 
   const setupTasks: TaskWithLogDefinition[] = [];
@@ -816,7 +817,7 @@ function setupRealWorldExemple(args: { path: string; context: Context }): TaskWi
         playwrightInstaller: args.context.playwrightInstaller,
         databaseInstaller: args.context.databaseInstaller,
         orpcInstaller: args.context.orpcInstaller,
-        betterAuthInstaller: args.context.betterAuthInstaller
+        betterAuthInstaller: args.context.betterAuthInstaller,
       });
       if (!SKIP_COMMIT) {
         await Git.commitAllFiles(
