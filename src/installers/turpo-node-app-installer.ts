@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { updatePackage } from "pkg-types";
 import { TEMPLATE_ROOT } from "../consts";
-import { updateJsonFile } from "../helpers/json-file";
 import { replaceTextInFile } from "../helpers/text-file";
 import Versions from "../versions.json";
 import type { MonoRepoInstaller } from "./mono-repo-installer";
@@ -44,14 +43,10 @@ export class TurboNodeAppInstaller {
     await updatePackage(this.packageJsonPath, (pkg) => {
       pkg.name = this.appName;
     });
-    await this.addDevDependencyToPackageJson("@types/node", Versions["@types/node"]);
+    await this.addDevDependencyToPackageJson("@types/node", "catalog:");
     await this.addDevDependencyToPackageJson("tsx", Versions.tsx);
     await this.addDevDependencyToPackageJson("typescript", Versions.typescript);
     await this.addDevDependencyToPackageJson("tsup", Versions.tsup);
-    await updateJsonFile(this.packageJsonPath, (json) => {
-      json.volta = json.volta || {};
-      json.volta.node = Versions.node;
-    });
     await replaceTextInFile(this.dockerfilePath, "ARG APP_NAME=todo-change-me", `ARG APP_NAME=${this.appName}`);
   }
 
@@ -82,7 +77,7 @@ export class TurboNodeAppInstaller {
     });
   }
 
-  public async addEnvVariable(key: string, defaultValue?: string,) {
+  public async addEnvVariable(key: string, defaultValue?: string) {
     const envLine = `${key}=${defaultValue ?? ""}\n`;
     await fs.appendFile(this.envPath, envLine);
     await fs.appendFile(this.envSamplePath, envLine);
