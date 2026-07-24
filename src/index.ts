@@ -45,6 +45,73 @@ type Context = {
   betterAuthInstaller: BetterAuthInstaller | undefined;
 };
 
+async function createEmptyTurboRepo(args: { projectPath: string; appName: string; context: Context }) {
+  const { projectPath, appName, context } = args;
+  const setupTasks: TaskWithLogDefinition[] = [];
+
+  setupTasks.push({
+    title: "Initializing turbo repo...",
+    task: initTurboRepo({ path: projectPath, appName, context }),
+  });
+  setupTasks.push({
+    title: "Deleting turbo example apps and packages...",
+    task: deleteTurboExempleAppsAndPackages({ path: projectPath }),
+  });
+  setupTasks.push({
+    title: "Removing ESLint and Prettier...",
+    task: removeEslintAndPrettier({ path: projectPath }),
+  });
+  setupTasks.push({
+    title: "Setting TypeScript version...",
+    task: setTypescriptVersion({ path: projectPath }),
+  });
+  setupTasks.push({
+    title: "Initializing TypeScript config package...",
+    task: copyTypescriptConfigPackage({ path: projectPath }),
+  });
+  setupTasks.push({
+    title: "Copying .editorconfig file...",
+    task: copyEditorConfigFile({ path: projectPath }),
+  });
+  setupTasks.push({
+    title: "Copying VSCode settings file...",
+    task: copyVsCodeSettingsFile({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Copying .dockerignore file...",
+    task: copyDockerIgnoreFile({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Installing Biome...",
+    task: installBiome({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Adding ts-utils package...",
+    task: addTsUtilsPackage({ path: projectPath, context }),
+  });
+
+  setupTasks.push({
+    title: "Installing dependencies...",
+    task: installDependencies({ path: projectPath }),
+  });
+
+  setupTasks.push({
+    title: "Running pnpm fix...",
+    task: runPnpmFix({ path: projectPath }),
+  });
+
+  try {
+    await tasksWithLogs(setupTasks);
+  } catch (err) {
+    cancel((err as Error).toString());
+    process.exit(1);
+  }
+  outro("Done !");
+}
+
 async function main() {
   const cwd = process.cwd();
   intro(color.inverse("Mount stack"));
@@ -86,6 +153,20 @@ async function main() {
     playwrightInstaller: undefined,
     betterAuthInstaller: undefined,
   };
+
+  const shouldCreateAnEmptyTurboRepo = await confirm({
+    message: "Do you want to create an empty turborepo ?",
+    initialValue: false,
+  });
+
+  if (shouldCreateAnEmptyTurboRepo) {
+    await createEmptyTurboRepo({
+      appName,
+      context,
+      projectPath,
+    });
+    return;
+  }
 
   const shouldSetupPlaywright = await confirm({
     message: "Do you want to setup Playwright for end-to-end testing ?",
